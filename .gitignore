@@ -1,0 +1,6 @@
+data/*
+others/*
+result/*
+*.swp
+*.pth
+

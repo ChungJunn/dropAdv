@@ -4,3 +4,4 @@ result/*
 *.swp
 *.pth
 *.pkl
+__pycache__/*

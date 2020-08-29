@@ -6,7 +6,6 @@ import pickle as pkl
 import argparse
 import sys
 
-from cifar10 import CIFAR10_CNN_model
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
@@ -18,59 +17,65 @@ def fgsm_attack(image, epsilon, data_grad):
 
     return perturbed_image
 
-'''
-args: dataloder, pretrained model, epsilon
-out: adversarial examples in csv format
-'''
+def makeAE(model, test_loader, epsilon, device): 
+    adv_dataset = []
+    # feed the model with example 
+    for data, target in test_loader:
+        # send data to device
+        data, target = data.to(device), target.to(device)
+        
+        # require gradients for input
+        data.requires_grad=True
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--epsilon', type=float, help='', default=0)
-parser.add_argument('--model_file', type=str, help='', default=0)
-parser.add_argument('--out_file', type=str, help='', default=0)
-args = parser.parse_args()
+        # make output
+        output = model(data)
 
-args.epsilon = 0.1
-args.model_file = './cifar10_pretrained.pth'
-args.out_file = './adv_testset.pkl'
+        # compute loss
+        loss = F.nll_loss(output, target.type(torch.int64))
 
-# load pretrained model
-model = torch.load(args.model_file)
-batch_size = 1
-device = torch.device('cuda')
+        # backprop gradient
+        model.zero_grad()
+        loss.backward()
 
-# load dataloader
-cifar_test = dset.CIFAR10("./data", train=False, 
-                          transform=transforms.ToTensor(), 
-                          target_transform=None, download=True)
-test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
-                                  shuffle=False,num_workers=2,drop_last=True)
+        # use gradient to obtain advEx
+        data_grad = data.grad.data
+        ae = fgsm_attack(data, epsilon, data_grad).detach().cpu().numpy()
 
-adv_dataset = []
-# feed the model with example 
-for data, target in test_loader:
-    # send data to device
-    data, target = data.to(device), target.to(device)
+        adv_dataset.append([ae, target.item()])
     
-    # require gradients for input
-    data.requires_grad=True
+    return adv_dataset
 
-    # make output
-    output = model(data)
+if __name__ == '__main__':
+    '''
+    args: dataloder, pretrained model, epsilon
+    out: adversarial examples in csv format
+    '''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--epsilon', type=float, help='', default=0)
+    parser.add_argument('--model_file', type=str, help='', default=0)
+    parser.add_argument('--out_file', type=str, help='', default=0)
+    args = parser.parse_args()
+    from cifar10 import CIFAR10_CNN_model
 
-    # compute loss
-    loss = F.nll_loss(output, target.type(torch.int64))
+    args.epsilon = 0.1
+    args.model_file = './cifar10_pretrained.pth'
+    args.out_file = './adv_testset.pkl'
 
-    # backprop gradient
-    model.zero_grad()
-    loss.backward()
+    # load pretrained model
+    model = torch.load(args.model_file)
+    batch_size = 1
+    device = torch.device('cuda')
 
-    # use gradient to obtain advEx
-    data_grad = data.grad.data
-    ae = fgsm_attack(data, args.epsilon, data_grad).detach().cpu().numpy()
+    # load dataloader
+    cifar_test = dset.CIFAR10("./data", train=False, 
+                              transform=transforms.ToTensor(), 
+                              target_transform=None, download=True)
+    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
+                                      shuffle=False,num_workers=2,drop_last=True)
 
-    adv_dataset.append([ae, target.item()])
+    adv_dataset = makeAE(model, test_loader, args.epsilon, device)
 
-# save the data
-# save as pkl
-with open(args.out_file, 'wb') as fp:
-    pkl.dump(adv_dataset, fp)
+    # save the data
+    # save as pkl
+    with open(args.out_file, 'wb') as fp:
+        pkl.dump(adv_dataset, fp)

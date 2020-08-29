@@ -9,6 +9,8 @@ import torchvision.transforms as transforms
 import numpy as np
 
 from torch.utils.data import DataLoader
+from adv_data import advDataset
+from makeAE import makeAE
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -188,7 +190,8 @@ def test(model, device, test_loader):
 
 if __name__ == '__main__':
     # check model
-    model = CIFAR10_CNN_model()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = CIFAR10_CNN_model().to(device)
     print(model)
     print('=' * 90)
 
@@ -203,7 +206,7 @@ if __name__ == '__main__':
                               target_transform=None, download=True)
 
     # create valid dataset
-    datasets = torch.utils.data.random_split(cifar_train, [45000, 5000])
+    datasets = torch.utils.data.random_split(cifar_train, [45000, 5000], torch.Generator().manual_seed(42))
     cifar_train, cifar_valid = datasets[0], datasets[1]
 
     train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size, 
@@ -212,6 +215,24 @@ if __name__ == '__main__':
                                       shuffle=True,num_workers=2,drop_last=True)
     test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
                                       shuffle=False,num_workers=2,drop_last=True)
+
+    # import adversarial examples
+    epsilon = 0.1
+    
+    valid_loader_temp = torch.utils.data.DataLoader(cifar_valid,batch_size=1, 
+                                      shuffle=True,num_workers=2,drop_last=True)
+    adv_valid_data = makeAE(model, valid_loader_temp, epsilon, device)
+
+    import pickle as pkl
+    adv_val_file='adv_validset.pkl'
+    with open(adv_val_file, 'wb') as fp:
+        pkl.dump(adv_valid_data, fp)
+
+    adv_valid_dataset = advDataset(adv_valid_file)
+    adv_valid_loader = torch.utils.data.DataLoader(adv_valid_dataset, batch_size=batch_size,
+                                            shuffle=True, num_workers=2, drop_last=True)
+
+    import pdb; pdb.set_trace()
 
     print('train dataset: ', cifar_train.__getitem__(0)[0].size(), cifar_train.__len__())
     print('test dataset: ', cifar_test.__getitem__(0)[0].size(), cifar_test.__len__())
@@ -232,7 +253,6 @@ if __name__ == '__main__':
 
     torch.manual_seed(seed)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CIFAR10_CNN_model().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 

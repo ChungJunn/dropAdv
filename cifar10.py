@@ -13,6 +13,14 @@ from torch.utils.data import DataLoader
 import warnings
 warnings.filterwarnings('ignore')
 import os
+import neptune
+
+name = 'test'
+tag = 'tag'
+
+#neptune.init('cjlee/dropAdv')
+#neptune.create_experiment(name=name)
+#neptune.append_tag(tag)
 
 print(torch.__version__)
 
@@ -111,6 +119,7 @@ for batch, (data, target) in enumerate(train_loader):
 
 def train(model, device, train_loader, optimizer, epoch, log_interval):
     model.train()
+    total_loss = 0.0
     for batch_idx,(data,target) in enumerate(train_loader):
         # implement training loop
         # send tensors to GPU
@@ -124,9 +133,11 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
 
         # compute loss
         loss = F.nll_loss(output, target)
+        total_loss += loss.item()
     
         # backpropagate error using loss tensor
         loss.backward()
+        import pdb; pdb.set_trace()
 
         # update model parameter using optimizer
         optimizer.step()
@@ -135,6 +146,8 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
               epoch, batch_idx * len(data), len(train_loader.dataset),
               100. * batch_idx / len(train_loader), loss.item()))
+
+    return total_loss / batch_idx
 
 def test(model, device, test_loader):
     correct = 0
@@ -150,7 +163,7 @@ def test(model, device, test_loader):
 
     acc = correct / len(test_loader.dataset)
 
-    print('\nTest: Accuracy: {}/{} ({:.0f}%)\n'.format(
+    print('\nTest Accuracy: {}/{} ({:.0f}%)\n'.format(
         correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
@@ -172,8 +185,11 @@ patience = 5
 best_val_acc = None
 
 for epoch in range(1, num_epoch + 1):
-    train(model, device, train_loader, optimizer, epoch, log_interval)
+    train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
     val_acc = test(model, device, valid_loader)
+
+    #neptune.log_metric('train_loss', epoch, train_loss)
+    #neptune.log_metric('valid_acc', epoch, val_acc)
 
     # see if val_acc improves
     if best_val_acc is None or val_acc > best_val_acc:
@@ -188,4 +204,5 @@ for epoch in range(1, num_epoch + 1):
             break
 
 model = torch.load('./cifar10_pretrained.pth')
-test(model, device, test_loader)
+test_acc = test(model, device, test_loader)
+#neptune.set_property('test acc', test_acc)

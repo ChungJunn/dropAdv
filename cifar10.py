@@ -18,31 +18,35 @@ import os
 import neptune
 
 class CIFAR10_DNN_model(nn.Module):
-    def __init__(self):
+    def __init__(self, drop_p):
         super(CIFAR10_DNN_model,self).__init__()
-        self.fc1 = nn.Linear(3072,2500),
-        self.fc2 = nn.Linear(2500,2000),
-        self.fc3 = nn.Linear(2000,1000),
-        self.fc4 = nn.Linear(1000,100),
+        self.fc1 = nn.Linear(3072,2500)
+        self.fc2 = nn.Linear(2500,2000)
+        self.fc3 = nn.Linear(2000,1000)
+        self.fc4 = nn.Linear(1000,100)
         self.fc5 = nn.Linear(100,10)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=drop_p)
         
     def forward(self,x):
         x = self.fc1(x)
-        x = nn.ReLU(x)
+        x = self.relu(x)
+        x = self.dropout(x)
 
         x = self.fc2(x)
-        x = nn.ReLU(x)
+        x = self.relu(x)
+        x = self.dropout(x)
         
         x = self.fc3(x)
-        x = nn.ReLU(x)
+        x = self.relu(x)
+        x = self.dropout(x)
         
         x = self.fc4(x)
-        x = nn.ReLU(x)
+        x = self.relu(x)
+        x = self.dropout(x)
 
         x = self.fc5(x)
-        x = nn.ReLU(x)
-
-        return F.log_softmax(out, dim=1)
+        return F.log_softmax(x, dim=1)
 
 class CIFAR10_CNN_model(nn.Module):
     def __init__(self, use_dropout):
@@ -111,6 +115,7 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
         # implement training loop
         # send tensors to GPU
         data, target = data.to(device), target.to(device)
+        data = torch.flatten(data, start_dim=1)
     
         # initialize optimizer
         optimizer.zero_grad()
@@ -146,6 +151,7 @@ def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsi
 
     for batch_idx,(data,target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
+        data = torch.flatten(data, start_dim=1)
         # requires grads
         data.requires_grad = True 
     
@@ -178,6 +184,32 @@ def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsi
 
     return total_loss / batch_idx
 
+def adv_test(model, device, test_loader, epsilon):
+    correct = 0
+    total = 0
+    
+    for data, target in test_loader:
+        data, target = data.to(device), target.to(device)
+        data  = torch.flatten(data, start_dim=1)
+
+        # create perturbed data
+        data.requires_grad = True
+        output = model(data)
+        loss = F.nll_loss(output, target)
+        loss.backward()
+        data_grad = data.grad.data
+        perturbed_data = fgsm_attack(data, epsilon, data_grad)
+
+        # evaluate
+        output = model(perturbed_data)
+        _,output_index = torch.max(output,1)
+        total += target.size(0)
+        correct += (output_index == target).sum().float()
+
+    acc = correct / len(test_loader.dataset)
+
+    return acc
+
 def test(model, device, test_loader):
     correct = 0
     total = 0
@@ -185,6 +217,7 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
+            data  = torch.flatten(data, start_dim=1)
             output = model(data)
 
             _,output_index = torch.max(output,1)  
@@ -209,7 +242,6 @@ if __name__ == '__main__':
     parser.add_argument('--out_file', type=str, help='', default='pretrained.pth')
     parser.add_argument('--use_dropout', type=float, help='', default=0.0)
     parser.add_argument('--patience', type=float, help='', default=0.0)
-    parser.add_argument('--pre_trained_file', type=str, help='', default='cifar10_pretrained.pth')
     parser.add_argument('--use_adv_train', type=int, help='', default=0)
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
@@ -238,8 +270,74 @@ if __name__ == '__main__':
     train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size, 
                                       shuffle=True,num_workers=2,drop_last=True)
 
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # reload valid and testloader with batch_size
+    valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size, 
+                                      shuffle=True,num_workers=2,drop_last=True)
+    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
+                                      shuffle=False,num_workers=2,drop_last=True)
+
+    # training parameters
+    seed=args.seed
+    learning_rate=args.lr
+    num_epoch=args.num_epochs
+    log_interval=args.log_interval
+
+    alpha = args.alpha
+    epsilon = args.epsilon
+    torch.manual_seed(seed)
+    out_file = args.out_file
+
+    model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    bc = 0
+    patience = args.patience
+    best_val_acc = None
+
+    # start training
+    print('=' * 90)
+    print(model)
+    print('=' * 90)
+    print(optimizer)
+    print('=' * 90)
+
+    for epoch in range(1, num_epoch + 1):
+        if args.use_adv_train == 1:
+            train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=epsilon, alpha=alpha)
+            val_acc = adv_test(model, device, valid_loader, epsilon)
+        else:
+            train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
+            val_acc = test(model, device, valid_loader)
+
+        print('epoch {:d} | tr_loss: {:.4f} | val_acc {:.4f}'.format(epoch, train_loss, val_acc))
+        neptune.log_metric('train_loss', epoch, train_loss)
+        neptune.log_metric('valid_acc', epoch, val_acc)
+
+        # see if val_acc improves
+        if best_val_acc is None or val_acc > best_val_acc:
+            best_val_acc = val_acc
+            bc = 0
+            torch.save(model, out_file)
+
+        # if not improved
+        else:
+            bc += 1
+            if bc >= patience:
+                break
+
+    model = torch.load(out_file)
+    test_acc = test(model, device, test_loader)
+    print('test acc: {:.4f}'.format(test_acc))
+    neptune.set_property('test acc', test_acc.item())
+
+    adv_test_acc = adv_test(model, device, test_loader, epsilon)
+    print('adv_test_acc: {:.4f}'.format(adv_test_acc))
+    neptune.set_property('adv test acc', adv_test_acc.item())
+
+    '''
     # generate adversarial examples for test and valid set 
-    epsilon = args.epsilon 
     
     valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=1, 
                                       shuffle=True,num_workers=2,drop_last=True)
@@ -269,67 +367,4 @@ if __name__ == '__main__':
     adv_test_dataset = advDataset(adv_test_file)
     adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
                                             shuffle=True, num_workers=2, drop_last=True)
-
-    # reload valid and testloader with batch_size
-    valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size, 
-                                      shuffle=True,num_workers=2,drop_last=True)
-    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
-                                      shuffle=False,num_workers=2,drop_last=True)
-
-    # training parameters
-    seed=args.seed
-    learning_rate=args.lr
-    num_epoch=args.num_epochs
-    log_interval=args.log_interval
-
-    alpha = args.alpha
-    torch.manual_seed(seed)
-    out_file = args.out_file
-
-    model = CIFAR10_CNN_model(use_dropout=args.use_dropout).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    bc = 0
-    patience = 5
-    best_val_acc = None
-
-    # start training
-    print('=' * 90)
-    print(model)
-    print('=' * 90)
-    print(optimizer)
-    print('=' * 90)
-
-    for epoch in range(1, num_epoch + 1):
-        if args.use_adv_train == 1:
-            train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=epsilon, alpha=alpha)
-            val_acc = test(model, device, adv_valid_loader)
-        else:
-            train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
-            val_acc = test(model, device, valid_loader)
-
-        print('epoch {:d} | tr_loss: {:.4f} | val_acc {:.4f}'.format(epoch, train_loss, val_acc))
-        neptune.log_metric('train_loss', epoch, train_loss)
-        neptune.log_metric('valid_acc', epoch, val_acc)
-
-        # see if val_acc improves
-        if best_val_acc is None or val_acc > best_val_acc:
-            best_val_acc = val_acc
-            bc = 0
-            torch.save(model, out_file)
-
-        # if not improved
-        else:
-            bc += 1
-            if bc >= patience:
-                break
-
-    model = torch.load(out_file)
-    test_acc = test(model, device, test_loader)
-    adv_test_acc = test(model, device, adv_test_loader)
-    
-    print('test acc: {:.4f}'.format(test_acc))
-    print('adv_test_acc: {:.4f}'.format(adv_test_acc))
-
-    neptune.set_property('test acc', test_acc.item())
-    neptune.set_property('adv test acc', adv_test_acc.item())
+    '''

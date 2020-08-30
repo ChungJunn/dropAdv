@@ -17,7 +17,6 @@ warnings.filterwarnings('ignore')
 import os
 import neptune
 
-'''
 class CIFAR10_DNN_model(nn.Module):
     def __init__(self):
         super(CIFAR10_DNN_model,self).__init__()
@@ -44,7 +43,6 @@ class CIFAR10_DNN_model(nn.Module):
         x = nn.ReLU(x)
 
         return F.log_softmax(out, dim=1)
-'''
 
 class CIFAR10_CNN_model(nn.Module):
     def __init__(self, use_dropout):
@@ -305,10 +303,10 @@ if __name__ == '__main__':
     for epoch in range(1, num_epoch + 1):
         if args.use_adv_train == 1:
             train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=epsilon, alpha=alpha)
+            val_acc = test(model, device, adv_valid_loader)
         else:
             train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
-
-        val_acc = test(model, device, valid_loader)
+            val_acc = test(model, device, valid_loader)
 
         print('epoch {:d} | tr_loss: {:.4f} | val_acc {:.4f}'.format(epoch, train_loss, val_acc))
         neptune.log_metric('train_loss', epoch, train_loss)

@@ -6,10 +6,11 @@ BATCH_SIZE=32
 EPSILON=0.1
 ALPHA=0.5
 OUT_FILE='pretrained.pth'
-USE_DROPOUT=1
+PRE_TRAINED_FILE='cifar10_pretrained.pth'
+USE_DROPOUT=$1
 PATIENCE=5
-USE_ADV_TRAIN=0
-NAME='dropout+adv'
+USE_ADV_TRAIN=$2
+NAME=$3
 TAG='tag'
 
 python3 cifar10.py \
@@ -21,6 +22,7 @@ python3 cifar10.py \
     --epsilon=$EPSILON \
     --alpha=$ALPHA \
     --out_file=$OUT_FILE \
+    --pre_trained_file=$PRE_TRAINED_FILE \
     --use_dropout=$USE_DROPOUT \
     --patience=$PATIENCE \
     --use_adv_train=$USE_ADV_TRAIN \

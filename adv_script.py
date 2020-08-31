@@ -1,14 +1,15 @@
 import os
+# drop_p, use_adv_train
 
-use_drops = [0,1]
-use_adv_trains=[0,1]
+drop_ps= [0]
+use_adv_trains=[1]
 
 n_exp = 5
 prefix = './adv_run.sh '
 
-for use_drop in use_drops:
+for p in drop_ps:
     for use_adv_train in use_adv_trains:
-        tag = 'drop' + str(use_drop) + '-adv_train' + str(use_adv_train)
         for i in range(n_exp):
-            cmd = prefix + str(use_drop) + ' ' + str(use_adv_train) + ' ' + tag
+            name = 'normalValidation-drop' + str(p) + '-adv_train' + str(use_adv_train) + '-run' + str(i)
+            cmd = prefix + str(p) + ' ' + str(use_adv_train) + ' ' + name
             os.system(cmd)

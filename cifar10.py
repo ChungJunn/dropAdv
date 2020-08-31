@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F 
+import torch.nn.functional as F
 
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
@@ -49,7 +49,7 @@ class CIFAR10_DNN_model(nn.Module):
         return F.log_softmax(x, dim=1)
 
 class CIFAR10_CNN_model(nn.Module):
-    def __init__(self, use_dropout):
+    def __init__(self, drop_p):
         super(CIFAR10_CNN_model,self).__init__()
         self.layer = nn.Sequential(
             nn.Conv2d(3,16,3,padding=1),
@@ -73,20 +73,13 @@ class CIFAR10_CNN_model(nn.Module):
 
         conv_size = self.get_conv_size((3,32,32))
 
-        if use_dropout == 1:
-            self.fc_layer = nn.Sequential(
-                nn.Dropout(p=0.5),
-                nn.Linear(conv_size,200),
-                nn.ReLU(),
-                nn.Dropout(p=0.5),
-                nn.Linear(200,10),
-            )
-        else:
-            self.fc_layer = nn.Sequential(
-                nn.Linear(conv_size,200),
-                nn.ReLU(),
-                nn.Linear(200,10),
-            )
+        self.fc_layer = nn.Sequential(
+            nn.Dropout(p=drop_p),
+            nn.Linear(conv_size,200),
+            nn.ReLU(),
+            nn.Dropout(p=drop_p),
+            nn.Linear(200,10),
+        )
 
     def get_conv_size(self, shape):
         o = self.layer(torch.zeros(1, *shape))
@@ -115,7 +108,7 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
         # implement training loop
         # send tensors to GPU
         data, target = data.to(device), target.to(device)
-        data = torch.flatten(data, start_dim=1)
+        #data = torch.flatten(data, start_dim=1)
     
         # initialize optimizer
         optimizer.zero_grad()
@@ -151,9 +144,9 @@ def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsi
 
     for batch_idx,(data,target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
-        data = torch.flatten(data, start_dim=1)
+        #data = torch.flatten(data, start_dim=1)
         # requires grads
-        data.requires_grad = True 
+        data.requires_grad = True
     
         optimizer.zero_grad()
 
@@ -190,7 +183,7 @@ def adv_test(model, device, test_loader, epsilon):
     
     for data, target in test_loader:
         data, target = data.to(device), target.to(device)
-        data  = torch.flatten(data, start_dim=1)
+        #data  = torch.flatten(data, start_dim=1)
 
         # create perturbed data
         data.requires_grad = True
@@ -217,10 +210,10 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            data  = torch.flatten(data, start_dim=1)
+            #data  = torch.flatten(data, start_dim=1)
             output = model(data)
 
-            _,output_index = torch.max(output,1)  
+            _,output_index = torch.max(output,1)
             total += target.size(0)
             correct += (output_index == target).sum().float()
 
@@ -239,8 +232,6 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon', type=float, help='', default=0)
     parser.add_argument('--drop_p', type=float, help='', default=0)
     parser.add_argument('--alpha', type=float, help='', default=0)
-    parser.add_argument('--out_file', type=str, help='', default='pretrained.pth')
-    parser.add_argument('--use_dropout', type=float, help='', default=0.0)
     parser.add_argument('--patience', type=float, help='', default=0.0)
     parser.add_argument('--use_adv_train', type=int, help='', default=0)
     parser.add_argument('--name', type=str, help='', default=0)
@@ -267,15 +258,14 @@ if __name__ == '__main__':
 
     cifar_train, cifar_valid = datasets[0], datasets[1]
 
-    train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size, 
+    train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size,
                                       shuffle=True,num_workers=2,drop_last=True)
-
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # reload valid and testloader with batch_size
-    valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size, 
+    valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size,
                                       shuffle=True,num_workers=2,drop_last=True)
-    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
+    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
                                       shuffle=False,num_workers=2,drop_last=True)
 
     # training parameters
@@ -287,9 +277,9 @@ if __name__ == '__main__':
     alpha = args.alpha
     epsilon = args.epsilon
     torch.manual_seed(seed)
-    out_file = args.out_file
+    out_file = args.name + '.pth'
 
-    model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+    model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     bc = 0
@@ -306,7 +296,7 @@ if __name__ == '__main__':
     for epoch in range(1, num_epoch + 1):
         if args.use_adv_train == 1:
             train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=epsilon, alpha=alpha)
-            val_acc = adv_test(model, device, valid_loader, epsilon)
+            val_acc = test(model, device, valid_loader)
         else:
             train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
             val_acc = test(model, device, valid_loader)
@@ -319,7 +309,7 @@ if __name__ == '__main__':
         if best_val_acc is None or val_acc > best_val_acc:
             best_val_acc = val_acc
             bc = 0
-            torch.save(model, out_file)
+            torch.save(model, './result/' + out_file)
 
         # if not improved
         else:
@@ -327,7 +317,7 @@ if __name__ == '__main__':
             if bc >= patience:
                 break
 
-    model = torch.load(out_file)
+    model = torch.load('./result/' + out_file)
     test_acc = test(model, device, test_loader)
     print('test acc: {:.4f}'.format(test_acc))
     neptune.set_property('test acc', test_acc.item())

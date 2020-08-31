@@ -57,20 +57,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
     from cifar10 import CIFAR10_CNN_model
 
-    args.epsilon = 0.1
-    args.model_file = './cifar10_pretrained.pth'
-    args.out_file = './adv_testset.pkl'
-
     # load pretrained model
     model = torch.load(args.model_file)
     batch_size = 1
     device = torch.device('cuda')
 
     # load dataloader
-    cifar_test = dset.CIFAR10("./data", train=False, 
-                              transform=transforms.ToTensor(), 
+    cifar_test = dset.CIFAR10("./data", train=False,
+                              transform=transforms.ToTensor(),
                               target_transform=None, download=True)
-    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size, 
+    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
                                       shuffle=False,num_workers=2,drop_last=True)
 
     adv_dataset = makeAE(model, test_loader, args.epsilon, device)

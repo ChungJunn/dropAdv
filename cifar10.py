@@ -128,6 +128,23 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
 
     return total_loss / batch_idx
 
+def eval(model, device, valid_loader):
+    model.eval()
+    total_loss = 0.0
+    for batch_idx,(data,target) in enumerate(valid_loader):
+        # implement training loop
+        # send tensors to GPU
+        data, target = data.to(device), target.to(device)
+
+        # put data into model
+        output = model(data)
+
+        # compute loss
+        loss = F.nll_loss(output, target)
+        total_loss += loss.item()
+
+    return total_loss / batch_idx
+
 def fgsm_attack(image, epsilon, data_grad):
     # Collect the element-wise sign of the data gradient
     sign_data_grad = data_grad.sign()

@@ -4,9 +4,9 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
 class advDataset(Dataset):
-    def __init__(self, pkl_file):
-        with open(pkl_file, 'rb') as fp:
-            self.data = pkl.load(fp)
+    # data is list of lists
+    def __init__(self, data):
+        self.data = data
 
     def __len__(self):
         return len(self.data)
@@ -15,7 +15,7 @@ class advDataset(Dataset):
         x = torch.tensor(self.data[idx][0].squeeze(0)).type(torch.float32)
         y = torch.tensor(self.data[idx][1]).type(torch.int64)
 
-        return x, y 
+        return x, y
 
 if __name__ == '__main__':
     dset = advDataset('./adv_testset.pkl')

@@ -1,14 +1,13 @@
 SEED=93
 LR=0.001
-NUM_EPOCHS=1000
+NUM_EPOCHS=2000
 LOG_INTERVAL=1000
 BATCH_SIZE=64
-EPSILON=0.05
+EPSILON=$1
 ALPHA=0.5
-DROP_P=$1
+DROP_P=0.4
 PATIENCE=20
-USE_ADV_TRAIN=$2
-NAME=$3
+NAME=$2
 TAG='tag'
 
 python3 cifar10.py \
@@ -20,7 +19,6 @@ python3 cifar10.py \
     --epsilon=$EPSILON \
     --alpha=$ALPHA \
     --patience=$PATIENCE \
-    --use_adv_train=$USE_ADV_TRAIN \
     --name=$NAME \
     --tag=$TAG \
     --drop_p=$DROP_P

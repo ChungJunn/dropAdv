@@ -1,18 +1,18 @@
 export CUDA_VISIBLE_DEVICES=$1
 SEED=$3
 LR=0.001
-NUM_EPOCHS=2
+NUM_EPOCHS=2000
 LOG_INTERVAL=1000
 BATCH_SIZE=64
 EPSILON=0.15
 ALPHA=0.5
 DROP_P=0.4
 PATIENCE=20
-ADV_PATIENCE=100
+ADV_PATIENCE=40
 NAME=$2
 TAG='tag'
 
-IS_DNN=1
+IS_DNN=0
 
 python3 cifar10.py \
     --seed=$SEED \
@@ -26,5 +26,5 @@ python3 cifar10.py \
     --name=$NAME \
     --tag=$TAG \
     --drop_p=$DROP_P \
-    --is_dnn=$IS_DNN
+    --is_dnn=$IS_DNN \
     --adv_patience=$ADV_PATIENCE

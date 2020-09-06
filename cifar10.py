@@ -70,7 +70,7 @@ class CIFAR10_CNN_model(nn.Module):
             nn.ReLU(),
             nn.Conv2d(256,256,3,padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2,2)
+            nn.MaxPool2d(2,2),
         )
 
         conv_size = self.get_conv_size((3,32,32))
@@ -196,6 +196,51 @@ def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsi
 
     return total_loss / batch_idx
 
+def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon, alpha):
+    model.train()
+    total_loss = 0.0
+    
+    ae_tm1 = None
+    
+    for batch_idx,(data,target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
+
+        # requires grads
+        data.requires_grad = True
+    
+        optimizer.zero_grad()
+
+        output = model(data)
+        clean_loss = F.nll_loss(output, target)
+
+        # call FGSM attack
+        clean_loss.backward(retain_graph=True)
+        data_grad = data.grad.data
+
+        perturbed_data = fgsm_attack(data, epsilon, data_grad)
+        optimizer.zero_grad()
+
+        # forward data to obtain adv loss
+        if ae_tm1 is not None:
+            output = model(ae_tm1)
+
+            adv_loss = F.nll_loss(output, target)
+
+            # combined loss backward and optimizer.step
+            loss = alpha * clean_loss + (1.0 - alpha) * adv_loss 
+            
+        else:
+            loss = clean_loss
+
+        total_loss += loss.item()
+        loss.backward()
+        optimizer.step()
+
+        # reserve the adversarial example
+        ae_tm1 = perturbed_data
+
+    return total_loss / batch_idx
+
 def adv_test(model, device, test_loader, epsilon):
     correct = 0
     total = 0
@@ -221,6 +266,29 @@ def adv_test(model, device, test_loader, epsilon):
     acc = correct / len(test_loader.dataset)
 
     return acc
+
+def adv_validate(model, device, valid_loader, epsilon):
+    loss_total = 0.0
+    
+    for batch_idx, (data, target) in enumerate(valid_loader):
+        data, target = data.to(device), target.to(device)
+
+        # create perturbed data
+        data.requires_grad = True
+        output = model(data)
+        loss = F.nll_loss(output, target)
+        loss.backward()
+        data_grad = data.grad.data
+        perturbed_data = fgsm_attack(data, epsilon, data_grad)
+
+        # evaluate
+        output = model(perturbed_data)
+        adv_loss = F.nll_loss(output, target)
+        loss_total += adv_loss.item()
+
+    avg_loss = loss_total / batch_idx
+
+    return avg_loss
 
 def test(model, device, test_loader):
     correct = 0
@@ -375,7 +443,8 @@ if __name__ == '__main__':
 
     for epoch in range(1, num_epoch + 1):
         train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
-        val_loss = validate(model, device, adv_valid_loader)
+        val_loss = validate(model, device, valid_loader) # normal validation set
+        #val_loss = adv_validate(model, device, adv_valid_loader, epsilon=args.epsilon) # adversarial validation set
 
         print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
         neptune.log_metric('[adv_train] train_loss', epoch, train_loss)
@@ -394,6 +463,8 @@ if __name__ == '__main__':
                 break
 
     # evaluate the model
+    model = torch.load('./result/' + out_file) #load the best model
+
     test_acc = test(model, device, test_loader)
     print('[adv_train] test acc: {:.4f}'.format(test_acc))
     neptune.set_property('[advtrain] test acc', test_acc.item())

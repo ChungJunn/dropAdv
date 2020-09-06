@@ -251,7 +251,8 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon', type=float, help='', default=0)
     parser.add_argument('--drop_p', type=float, help='', default=0)
     parser.add_argument('--alpha', type=float, help='', default=0)
-    parser.add_argument('--patience', type=float, help='', default=0.0)
+    parser.add_argument('--patience', type=int, help='', default=0.0)
+    parser.add_argument('--adv_patience', type=int, help='', default=0.0)
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
     parser.add_argument('--is_dnn', type=int, help='', default=0)
@@ -330,7 +331,7 @@ if __name__ == '__main__':
         # if not improved
         else:
             bc += 1
-            if bc >= patience:
+            if bc >= args.patience:
                 break
 
     # generate adversarial training and test sets  
@@ -389,7 +390,7 @@ if __name__ == '__main__':
         # if not improved
         else:
             bc += 1
-            if bc >= patience:
+            if bc >= args.adv_patience:
                 break
 
     # evaluate the model

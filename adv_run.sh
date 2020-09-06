@@ -1,4 +1,5 @@
-SEED=93
+export CUDA_VISIBLE_DEVICES=$1
+SEED=$3
 LR=0.001
 NUM_EPOCHS=2
 LOG_INTERVAL=1000
@@ -7,7 +8,8 @@ EPSILON=0.15
 ALPHA=0.5
 DROP_P=0.4
 PATIENCE=20
-NAME='testing-dnn-cnn-switch'
+ADV_PATIENCE=100
+NAME=$2
 TAG='tag'
 
 IS_DNN=1
@@ -25,3 +27,4 @@ python3 cifar10.py \
     --tag=$TAG \
     --drop_p=$DROP_P \
     --is_dnn=$IS_DNN
+    --adv_patience=$ADV_PATIENCE

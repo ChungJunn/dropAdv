@@ -128,7 +128,7 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
 
     return total_loss / batch_idx
 
-def eval(model, device, valid_loader):
+def validate(model, device, valid_loader):
     model.eval()
     total_loss = 0.0
     for batch_idx,(data,target) in enumerate(valid_loader):
@@ -296,7 +296,7 @@ if __name__ == '__main__':
 
     bc = 0
     patience = args.patience
-    best_val_acc = None
+    best_val_loss = None
 
     # start training
     print('=' * 90)
@@ -308,15 +308,15 @@ if __name__ == '__main__':
     # train normal model
     for epoch in range(1, num_epoch + 1):
         train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
-        val_acc = test(model, device, valid_loader)
+        val_loss = validate(model, device, valid_loader)
 
-        print('epoch {:d} | tr_loss: {:.4f} | val_acc {:.4f}'.format(epoch, train_loss, val_acc))
+        print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
         neptune.log_metric('train_loss', epoch, train_loss)
-        neptune.log_metric('valid_acc', epoch, val_acc)
+        neptune.log_metric('valid_loss', epoch, val_loss)
 
         # see if val_acc improves
-        if best_val_acc is None or val_acc > best_val_acc:
-            best_val_acc = val_acc
+        if best_val_loss is None or val_loss < best_val_loss:
+            best_val_loss = val_loss
             bc = 0
             torch.save(model, './result/' + out_file)
 
@@ -356,22 +356,22 @@ if __name__ == '__main__':
 
     # retrain the model with adversarial training
     bc = 0
-    best_val_acc = None
+    best_val_loss = None
 
     model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     for epoch in range(1, num_epoch + 1):
         train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
-        val_acc = test(model, device, adv_valid_loader)
+        val_loss = validate(model, device, adv_valid_loader)
 
-        print('epoch {:d} | tr_loss: {:.4f} | val_acc {:.4f}'.format(epoch, train_loss, val_acc))
+        print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
         neptune.log_metric('[adv_train] train_loss', epoch, train_loss)
-        neptune.log_metric('[adv_train] valid_acc', epoch, val_acc)
+        neptune.log_metric('[adv_train] valid_loss', epoch, val_loss)
 
         # see if val_acc improves
-        if best_val_acc is None or val_acc > best_val_acc:
-            best_val_acc = val_acc
+        if best_val_loss is None or val_loss < best_val_loss:
+            best_val_loss = val_loss
             bc = 0
             torch.save(model, './result/' + out_file)
 

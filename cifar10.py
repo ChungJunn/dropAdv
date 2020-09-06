@@ -29,6 +29,8 @@ class CIFAR10_DNN_model(nn.Module):
         self.dropout = nn.Dropout(p=drop_p)
         
     def forward(self,x):
+        x = torch.flatten(x, start_dim=1)
+
         x = self.fc1(x)
         x = self.relu(x)
         x = self.dropout(x)
@@ -252,6 +254,7 @@ if __name__ == '__main__':
     parser.add_argument('--patience', type=float, help='', default=0.0)
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
+    parser.add_argument('--is_dnn', type=int, help='', default=0)
     args = parser.parse_args()
 
     params = vars(args)
@@ -291,7 +294,11 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     out_file = args.name + '.pth'
 
-    model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+    if args.is_dnn == 1:
+        model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+    else:
+        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     bc = 0
@@ -358,7 +365,11 @@ if __name__ == '__main__':
     bc = 0
     best_val_acc = None
 
-    model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+    if args.is_dnn == 1:
+        model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+    else:
+        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     for epoch in range(1, num_epoch + 1):

@@ -1,14 +1,16 @@
 SEED=93
 LR=0.001
-NUM_EPOCHS=2000
+NUM_EPOCHS=2
 LOG_INTERVAL=1000
 BATCH_SIZE=64
-EPSILON=$1
+EPSILON=0.15
 ALPHA=0.5
 DROP_P=0.4
 PATIENCE=20
-NAME=$2
+NAME='testing-dnn-cnn-switch'
 TAG='tag'
+
+IS_DNN=1
 
 python3 cifar10.py \
     --seed=$SEED \
@@ -21,4 +23,5 @@ python3 cifar10.py \
     --patience=$PATIENCE \
     --name=$NAME \
     --tag=$TAG \
-    --drop_p=$DROP_P
+    --drop_p=$DROP_P \
+    --is_dnn=$IS_DNN

@@ -11,7 +11,7 @@ for p in ps:
         os.system(cmd)
 '''
 
-epss = [0.25, 0.3]
+epss = [0.25]
 n_exp = 3
 prefix = './adv_run.sh '
 for eps in epss:

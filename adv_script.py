@@ -1,26 +1,18 @@
 import os
 import random
 
-ps = [0.4]
-is_dnn = 0 
-n_exp = 1
-name = 'cnn-large-drop_p' + str(ps[0]) + '-run-3'
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--gpu', type=int, help='', default=0)
+parser.add_argument('--drop_p', type=float, help='', default=0)
+parser.add_argument('--adv_train', type=int, help='', default=0)
+args = parser.parse_args()
 
-prefix = './adv_run.sh '
-for p in ps:
-    for i in range(n_exp):
-        seed = random.randint(0, 100)
-        #name = 'cnn-large-drop_p' + str(p) + '-run-' + str(i)
-        cmd = prefix + str(is_dnn) + ' ' + str(p) + ' ' + name + ' ' + str(seed)
-        os.system(cmd)
-
-'''
-epss = [0.25]
 n_exp = 3
-prefix = './adv_run.sh '
-for eps in epss:
-    for i in range(n_exp):
-        name = 'cnn-eps' + str(eps) + '-run-' + str(i)
-        cmd = prefix + str(eps) + ' ' + name
-        os.system(cmd)
-'''
+
+prefix = './adv_run2.sh '
+for i in range(n_exp):
+    name = 'cnn-advtr' + str(args.adv_train) + '-drop' + str(args.drop_p) + '-run' + str(i)
+    cmd = prefix + str(args.gpu) + ' ' + str(args.drop_p) + ' ' + str(args.adv_train) + ' ' + name
+    os.system(cmd)
+

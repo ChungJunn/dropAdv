@@ -312,7 +312,6 @@ def test(model, device, test_loader):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, help='', default=0)
     parser.add_argument('--lr', type=float, help='', default=0)
     parser.add_argument('--num_epochs', type=int, help='', default=0)
     parser.add_argument('--log_interval', type=int, help='', default=0)
@@ -326,12 +325,15 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
     parser.add_argument('--is_dnn', type=int, help='', default=0)
+
+    parser.add_argument('--adv_test_path', type=str, help='', default='')
+    parser.add_argument('--load_adv_test', type=int, help='', default='')
+    parser.add_argument('--seed', type=int, help='the code will generate it automatically', default=0)
     args = parser.parse_args()
 
     # random seed
     import random
     seed = random.randint(0, 50000)
-    args.seed = seed
 
     params = vars(args)
 
@@ -362,7 +364,6 @@ if __name__ == '__main__':
                                       shuffle=False,num_workers=2,drop_last=True)
 
     # training parameters
-    seed=args.seed
     learning_rate=args.lr
     num_epoch=args.num_epochs
     log_interval=args.log_interval
@@ -389,12 +390,19 @@ if __name__ == '__main__':
     print('=' * 90)
 
     epoch =1
-    train_loss = adv_train2(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
     # train normal model
     for epoch in range(1, num_epoch + 1):
-        train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
-        val_loss = validate(model, device, valid_loader)
+        if args.adv_train == 0:
+            train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
+        elif args.adv_train == 1:
+            train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
+        elif args.adv_train == 2:
+            train_loss = adv_train2(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
+        else:
+            print('adv_train must be 0, 1, or 2')
+            import sys; sys.exit(-1)
 
+        val_loss = validate(model, device, valid_loader)
         print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
         neptune.log_metric('train_loss', epoch, train_loss)
         neptune.log_metric('valid_loss', epoch, val_loss)
@@ -415,77 +423,45 @@ if __name__ == '__main__':
     model = torch.load('./result/' + out_file)
 
     test_acc = test(model, device, test_loader)
-    print('[normal train] test acc: {:.4f}'.format(test_acc))
-    neptune.set_property('[normal train] test acc', test_acc.item())
+    print('test acc: {:.4f}'.format(test_acc))
+    neptune.set_property('test acc', test_acc.item())
 
-    # generate adversarial examples for test and valid set 
-    valid_loader_ = torch.utils.data.DataLoader(cifar_valid,batch_size=1,
-                                      shuffle=True,num_workers=2,drop_last=True)
-    test_loader_ = torch.utils.data.DataLoader(cifar_test,batch_size=1,
-                                      shuffle=False,num_workers=2,drop_last=True)
+    #### normal training ends ####
+    # generate or load adversarial examples
+    # generate
+    if args.load_adv_test == 0:
+        valid_loader_ = torch.utils.data.DataLoader(cifar_valid,batch_size=1,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        test_loader_ = torch.utils.data.DataLoader(cifar_test,batch_size=1,
+                                          shuffle=False,num_workers=2,drop_last=True)
 
-    adv_val_data = makeAE(model, valid_loader_, args.epsilon, device)
-    adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
+        # adversarial examples
+        adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
+
+        # save into pkl file
+        # filename = cnn-<trainscheme>-<eps>.pth
+        import pickle as pkl
+        with open(args.adv_test_path, 'wb') as fp:
+            pkl.dump(adv_test_data, fp) 
+
+        # dataloader
+        adv_test_dataset = advDataset(adv_test_data)
+        adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+                                                shuffle=True, num_workers=2, drop_last=True)
+
+    # load dataset
+    if args.load_adv_test == 1:
+        import pickle as pkl
+        with open(args.adv_test_path, 'rb') as fp:
+            adv_test_dataset = pkl.load(fp) 
+
+        # dataloader
+        adv_test_dataset = advDataset(adv_test_data)
+        adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+                                                shuffle=True, num_workers=2, drop_last=True)
     
-    # load adversarial examples
-    adv_valid_dataset = advDataset(adv_val_data)
-    adv_valid_loader = torch.utils.data.DataLoader(adv_valid_dataset, batch_size=batch_size,
-                                            shuffle=True, num_workers=2, drop_last=True)
-    adv_test_dataset = advDataset(adv_test_data)
-    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
-                                            shuffle=True, num_workers=2, drop_last=True)
-
+    # run test on adversarial examples
     adv_test_acc = test(model, device, adv_test_loader)
-    print('[normal train] adv_test acc: {:.4f}'.format(adv_test_acc))
-    neptune.set_property('[normal train] adv_test acc', adv_test_acc.item())
+    print('adv_test acc: {:.4f}'.format(adv_test_acc))
+    neptune.set_property('adv_test acc', adv_test_acc.item())
 
-    # retrain the model with adversarial training
-    bc = 0
-    best_val_loss = None
-
-    if args.is_dnn == 1:
-        model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
-    else:
-        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    for epoch in range(1, num_epoch + 1):
-        if args.adv_train == 1:
-            train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
-        elif args.adv_train == 2:
-            train_loss = adv_train2(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
-        else:
-            print('adv_train must be 1 or 2')
-            import sys
-            sys.exit(0)
-
-        val_loss = validate(model, device, valid_loader) # normal validation set
-        #val_loss = adv_validate(model, device, adv_valid_loader, epsilon=args.epsilon) # adversarial validation set
-
-        print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
-        neptune.log_metric('[adv_train] train_loss', epoch, train_loss)
-        neptune.log_metric('[adv_train] valid_loss', epoch, val_loss)
-
-        # see if val_acc improves
-        if best_val_loss is None or val_loss < best_val_loss:
-            best_val_loss = val_loss
-            bc = 0
-            torch.save(model, './result/' + out_file)
-
-        # if not improved
-        else:
-            bc += 1
-            if bc >= args.adv_patience:
-                break
-
-    # evaluate the model
-    model = torch.load('./result/' + out_file) #load the best model
-
-    test_acc = test(model, device, test_loader)
-    print('[adv_train] test acc: {:.4f}'.format(test_acc))
-    neptune.set_property('[advtrain] test acc', test_acc.item())
-    
-    adv_test_acc = test(model, device, adv_test_loader)
-    print('[adv_train] adv_test acc: {:.4f}'.format(adv_test_acc))
-    neptune.set_property('[advtrain] adv_test acc', adv_test_acc.item())

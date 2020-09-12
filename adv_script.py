@@ -8,7 +8,7 @@ parser.add_argument('--drop_p', type=float, help='', default=0)
 parser.add_argument('--adv_train', type=int, help='', default=0)
 args = parser.parse_args()
 
-n_exp = 3
+n_exp = 5
 
 prefix = './adv_run2.sh '
 for i in range(n_exp):

@@ -103,7 +103,7 @@ class CIFAR10_CNN_model(nn.Module):
         out = self.fc_layer(out)
         return F.log_softmax(out, dim=1)
 
-def train(model, device, train_loader, optimizer, epoch, log_interval):
+def train(model, device, train_loader, optimizer, epoch):
     model.train()
     total_loss = 0.0
     for batch_idx,(data,target) in enumerate(train_loader):
@@ -157,7 +157,7 @@ def fgsm_attack(image, epsilon, data_grad):
     # Return the perturbed image
     return perturbed_image
 
-def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon, alpha):
+def adv_train1(model, device, train_loader, optimizer, epoch, epsilon, alpha):
     model.train()
     total_loss = 0.0
 
@@ -196,8 +196,7 @@ def adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsi
 
     return total_loss / batch_idx
 
-def adv_train2(model, device, train_loader, optimizer, epoch, log_interval, epsilon, alpha):
-    print('adv_train2')
+def adv_train2(model, device, train_loader, optimizer, epoch, epsilon, alpha):
     model.train()
     total_loss = 0.0
     
@@ -314,19 +313,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', type=float, help='', default=0)
     parser.add_argument('--num_epochs', type=int, help='', default=0)
-    parser.add_argument('--log_interval', type=int, help='', default=0)
     parser.add_argument('--batch_size', type=int, help='', default=0)
     parser.add_argument('--epsilon', type=float, help='', default=0)
     parser.add_argument('--drop_p', type=float, help='', default=0)
     parser.add_argument('--alpha', type=float, help='', default=0)
     parser.add_argument('--patience', type=int, help='', default=0.0)
-    parser.add_argument('--adv_patience', type=int, help='', default=0.0)
     parser.add_argument('--adv_train', type=int, help='', default=0)
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
     parser.add_argument('--is_dnn', type=int, help='', default=0)
 
-    parser.add_argument('--adv_test_path', type=str, help='', default='')
+    parser.add_argument('--adv_test_out_path', type=str, help='', default=None)
+    parser.add_argument('--adv_test_path1', type=str, help='', default=None)
+    parser.add_argument('--adv_test_path2', type=str, help='', default=None)
+    parser.add_argument('--adv_test_path3', type=str, help='', default=None)
     parser.add_argument('--load_adv_test', type=int, help='', default='')
     parser.add_argument('--seed', type=int, help='the code will generate it automatically', default=0)
     args = parser.parse_args()
@@ -334,12 +334,14 @@ if __name__ == '__main__':
     # random seed
     import random
     seed = random.randint(0, 50000)
+    args.seed = seed
 
     params = vars(args)
 
     neptune.init('cjlee/dropAdv')
-    neptune.create_experiment(name=args.name, params=params)
+    experiment = neptune.create_experiment(name=args.name, params=params)
     neptune.append_tag(args.tag)
+    args.name = experiment.id
 
     # dataset
     batch_size = args.batch_size
@@ -366,7 +368,6 @@ if __name__ == '__main__':
     # training parameters
     learning_rate=args.lr
     num_epoch=args.num_epochs
-    log_interval=args.log_interval
 
     torch.manual_seed(seed)
     out_file = args.name + '.pth'
@@ -393,11 +394,11 @@ if __name__ == '__main__':
     # train normal model
     for epoch in range(1, num_epoch + 1):
         if args.adv_train == 0:
-            train_loss = train(model, device, train_loader, optimizer, epoch, log_interval)
+            train_loss = train(model, device, train_loader, optimizer, epoch)
         elif args.adv_train == 1:
-            train_loss = adv_train1(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
+            train_loss = adv_train1(model, device, train_loader, optimizer, epoch, epsilon=args.epsilon, alpha=args.alpha)
         elif args.adv_train == 2:
-            train_loss = adv_train2(model, device, train_loader, optimizer, epoch, log_interval, epsilon=args.epsilon, alpha=args.alpha)
+            train_loss = adv_train2(model, device, train_loader, optimizer, epoch, epsilon=args.epsilon, alpha=args.alpha)
         else:
             print('adv_train must be 0, 1, or 2')
             import sys; sys.exit(-1)
@@ -428,10 +429,7 @@ if __name__ == '__main__':
 
     #### normal training ends ####
     # generate or load adversarial examples
-    # generate
     if args.load_adv_test == 0:
-        valid_loader_ = torch.utils.data.DataLoader(cifar_valid,batch_size=1,
-                                          shuffle=True,num_workers=2,drop_last=True)
         test_loader_ = torch.utils.data.DataLoader(cifar_test,batch_size=1,
                                           shuffle=False,num_workers=2,drop_last=True)
 
@@ -441,7 +439,7 @@ if __name__ == '__main__':
         # save into pkl file
         # filename = cnn-<trainscheme>-<eps>.pth
         import pickle as pkl
-        with open(args.adv_test_path, 'wb') as fp:
+        with open(args.adv_test_out_path, 'wb') as fp:
             pkl.dump(adv_test_data, fp) 
 
         # dataloader
@@ -450,18 +448,20 @@ if __name__ == '__main__':
                                                 shuffle=True, num_workers=2, drop_last=True)
 
     # load dataset
+    import pickle as pkl
     if args.load_adv_test == 1:
-        import pickle as pkl
-        with open(args.adv_test_path, 'rb') as fp:
-            adv_test_dataset = pkl.load(fp) 
+        for i in range(1,4):
+            if eval('args.adv_test_path' + str(i)) is not None:
 
-        # dataloader
-        adv_test_dataset = advDataset(adv_test_data)
-        adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
-                                                shuffle=True, num_workers=2, drop_last=True)
+                with open(eval('args.adv_test_path' + str(i)), 'rb') as fp:
+                    adv_test_data = pkl.load(fp) 
+                # dataloader
+                adv_test_dataset = advDataset(adv_test_data)
+                adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+                                                        shuffle=True, num_workers=2, drop_last=True)
     
-    # run test on adversarial examples
-    adv_test_acc = test(model, device, adv_test_loader)
-    print('adv_test acc: {:.4f}'.format(adv_test_acc))
-    neptune.set_property('adv_test acc', adv_test_acc.item())
+                # run test on adversarial examples
+                adv_test_acc = test(model, device, adv_test_loader)
+                print(eval('args.adv_test_path' + str(i)) + ' test acc: {:.4f}'.format(adv_test_acc))
+                neptune.set_property(eval('args.adv_test_path' + str(i)) + ' adv_test acc', adv_test_acc.item())
 

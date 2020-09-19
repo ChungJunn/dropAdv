@@ -6,25 +6,25 @@ export CUDA_VISIBLE_DEVICES=$1
 LR=0.001
 NUM_EPOCHS=2000
 BATCH_SIZE=64
-EPSILON=0.25
+EPSILON=0.15
 ALPHA=0.5
-DROP_P=0
+DROP_P=0.25
 PATIENCE=20
 
 # adversarial training
 ADV_TRAIN=$2
 
 # neptune
-NAME='eps0.25-dropout0.0'
+NAME='dropout-0.25'
 TAG='tag'
 
-LOAD_ADV_TEST=0
-ADV_TEST_OUT_PATH='/home/chl/dropAdv/data/''cnn-adv_train'$ADV_TRAIN'-eps'$EPSILON'.ae'
+#LOAD_ADV_TEST=0
+#ADV_TEST_OUT_PATH='/home/chl/dropAdv/data/''cnn-adv_train'$ADV_TRAIN'-eps'$EPSILON'.pth'
 
-#LOAD_ADV_TEST=1
-#ADV_TEST_PATH1='/home/chl/dropAdv/data/''cnn-adv_train0-eps0.15''.pth'
-#ADV_TEST_PATH2='/home/chl/dropAdv/data/''cnn-adv_train1-eps0.15''.pth'
-#ADV_TEST_PATH3='/home/chl/dropAdv/data/''cnn-adv_train2-eps0.15''.pth'
+LOAD_ADV_TEST=1
+ADV_TEST_PATH1='/home/chl/dropAdv/data/''cnn-adv_train0-eps0.15''.pth'
+ADV_TEST_PATH2='/home/chl/dropAdv/data/''cnn-adv_train1-eps0.15''.pth'
+ADV_TEST_PATH3='/home/chl/dropAdv/data/''cnn-adv_train2-eps0.15''.pth'
 
 python3 cifar10.py \
     --lr=$LR \

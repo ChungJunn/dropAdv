@@ -11,4 +11,3 @@ cmd = './adv_run.sh ' + str(args.gpu) + ' ' + str(args.adv_train)
 
 for i in range(n_exp):
     os.system(cmd)
-    

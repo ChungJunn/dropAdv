@@ -17,7 +17,9 @@ def fgsm_attack(image, epsilon, data_grad):
 
     return perturbed_image
 
-def makeAE(model, test_loader, epsilon, device): 
+def makeAE(model, test_loader, epsilon, device):
+    model.train() # dropout in working as adv ex is generated
+
     adv_dataset = []
     # feed the model with example 
     for data, target in test_loader:

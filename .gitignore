@@ -5,3 +5,4 @@ result/*
 *.pth
 *.pkl
 __pycache__/*
+gpu*

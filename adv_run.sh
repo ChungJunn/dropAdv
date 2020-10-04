@@ -6,9 +6,9 @@ export CUDA_VISIBLE_DEVICES=$1
 LR=0.001
 NUM_EPOCHS=2000
 BATCH_SIZE=64
-EPSILON=0.15
+EPSILON=$2
 ALPHA=0.5
-DROP_P=$2
+DROP_P=$3
 PATIENCE=20
 
 # adversarial training
@@ -18,14 +18,13 @@ ADV_TRAIN=0
 NAME='test-clean-trained-model'
 TAG='none'
 
-LOAD_ADV_TEST=0
-ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/cnn-adv_train'$ADV_TRAIN'-eps'$EPSILON'-drop_p'$DROP_P'.ae'
+#LOAD_ADV_TEST=0
+#ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/cnn-adv_train'$ADV_TRAIN'-eps'$EPSILON'-drop_p'$DROP_P'.ae'
 
-
-#LOAD_ADV_TEST=1
-ADV_TEST_PATH1=$HOME'/dropAdv/data/cnn-adv_train0-eps'$EPSILON'-drop_p0.0.ae'
-ADV_TEST_PATH2=$HOME'/dropAdv/data/cnn-adv_train0-eps'$EPSILON'-drop_p0.25.ae'
-ADV_TEST_PATH3=$HOME'/dropAdv/data/cnn-adv_train0-eps'$EPSILON'-drop_p0.5.ae'
+LOAD_ADV_TEST=1
+ADV_TEST_PATH1=$HOME'/dropAdv/data/cnn-adv_train0-eps0.05.ae'
+ADV_TEST_PATH2=$HOME'/dropAdv/data/cnn-adv_train0-eps0.15-drop_p0.0.ae'
+ADV_TEST_PATH3=$HOME'/dropAdv/data/cnn-adv_train0-eps0.25.ae'
 
 python3 cifar10.py \
     --lr=$LR \

@@ -324,7 +324,9 @@ if __name__ == '__main__':
     parser.add_argument('--is_dnn', type=int, help='', default=0)
 
     parser.add_argument('--adv_test_out_path', type=str, help='', default=None)
-    parser.add_argument('--adv_test_path', type=str, help='', default=None)
+    parser.add_argument('--adv_test_path1', type=str, help='', default=None)
+    parser.add_argument('--adv_test_path2', type=str, help='', default=None)
+    parser.add_argument('--adv_test_path3', type=str, help='', default=None)
     parser.add_argument('--load_adv_test', type=int, help='', default='')
     parser.add_argument('--seed', type=int, help='the code will generate it automatically', default=0)
     args = parser.parse_args()
@@ -438,7 +440,7 @@ if __name__ == '__main__':
         # filename = cnn-<trainscheme>-<eps>.pth
         import pickle as pkl
         with open(args.adv_test_out_path, 'wb') as fp:
-            pkl.dump(adv_test_data, fp) 
+            pkl.dump(adv_test_data, fp)
 
         # dataloader
         adv_test_dataset = advDataset(adv_test_data)
@@ -452,15 +454,17 @@ if __name__ == '__main__':
     # load dataset
     import pickle as pkl
     if args.load_adv_test == 1:
-        with open(args.adv_test_path, 'rb') as fp:
-            adv_test_data = pkl.load(fp)
+        for i in range(1,4):
+            if eval('args.adv_test_path' + str(i)) is not None:
+                with open(eval('args.adv_test_path' + str(i)), 'rb') as fp:
+                    adv_test_data = pkl.load(fp)
 
-        # dataloader
-        adv_test_dataset = advDataset(adv_test_data)
-        adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
-                                                shuffle=True, num_workers=2, drop_last=True)
+                # dataloader
+                adv_test_dataset = advDataset(adv_test_data)
+                adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
 
-        # run test on adversarial examples
-        adv_test_acc = test(model, device, adv_test_loader)
-        print('adv test acc: {:.4f}'.format(adv_test_acc))
-        neptune.set_property('adv test acc', adv_test_acc.item())
+                # run test on adversarial examples
+                adv_test_acc = test(model, device, adv_test_loader)
+                print(eval('args.adv_test_path' + str(i)) + ' test acc: {:.4f}'.format(adv_test_acc))
+                neptune.set_property(eval('args.adv_test_path' + str(i)) + ' adv_test acc', adv_test_acc.item())
+

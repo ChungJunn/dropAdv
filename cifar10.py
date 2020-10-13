@@ -10,98 +10,13 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 from adv_data import advDataset
+from adv_model import CIFAR10_CNN_model
 from makeAE import makeAE
 
 import warnings
 warnings.filterwarnings('ignore')
 import os
 import neptune
-
-class CIFAR10_DNN_model(nn.Module):
-    def __init__(self, drop_p):
-        super(CIFAR10_DNN_model,self).__init__()
-        self.fc1 = nn.Linear(3072,2500)
-        self.fc2 = nn.Linear(2500,2000)
-        self.fc3 = nn.Linear(2000,1000)
-        self.fc4 = nn.Linear(1000,100)
-        self.fc5 = nn.Linear(100,10)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=drop_p)
-        
-    def forward(self,x):
-        x = torch.flatten(x, start_dim=1)
-
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        
-        x = self.fc3(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        
-        x = self.fc4(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc5(x)
-        return F.log_softmax(x, dim=1)
-
-class CIFAR10_CNN_model(nn.Module):
-    def __init__(self, drop_p):
-        super(CIFAR10_CNN_model,self).__init__()
-        self.layer = nn.Sequential(
-            nn.Conv2d(3,16,3,padding=1),
-            nn.ReLU(),
-            nn.Conv2d(16,32,3,padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2), # 32 x 16 x 16 (batch_size width height)
-            
-            nn.Conv2d(32,64,3,padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64,128,3,padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2), # 128 x 8 x 8
-            
-            nn.Conv2d(128,256,3,padding=1),
-            nn.ReLU(),
-            nn.Conv2d(256,256,3,padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
-        )
-
-        conv_size = self.get_conv_size((3,32,32))
-
-        self.fc_layer = nn.Sequential(
-            nn.Dropout(p=drop_p),
-            nn.Linear(conv_size,200),
-            nn.ReLU(),
-            nn.Dropout(p=drop_p),
-            nn.Linear(200,10),
-        )
-
-    def get_conv_size(self, shape):
-        o = self.layer(torch.zeros(1, *shape))
-        return int(np.prod(o.size()))
-        
-    def forward(self,x):
-        # Define forward function of the model
-
-        # obtain batch size
-        batch_size, c, h, w = x.data.size()
-
-        # feed data through conv layers
-        out = self.layer(x)
-
-        # reshape the output of convolution layer for fully-connected layer
-        out = out.view(batch_size, -1)
-
-        # feed data through feed-forward layer
-        out = self.fc_layer(out)
-        return F.log_softmax(out, dim=1)
 
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -372,10 +287,13 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     out_file = args.name + '.pth'
 
+    from adv_model import CIFAR10_CNN_small
+    from adv_model import CIFAR10_CNN_large
+
     if args.is_dnn == 1:
         model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
     else:
-        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+        model = CIFAR10_CNN_large(drop_p=args.drop_p).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 

@@ -237,6 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
     parser.add_argument('--is_dnn', type=int, help='', default=0)
+    parser.add_argument('--model', type=str, help='', default='base')
 
     parser.add_argument('--adv_test_out_path', type=str, help='', default=None)
     parser.add_argument('--adv_test_path1', type=str, help='', default=None)
@@ -290,10 +291,15 @@ if __name__ == '__main__':
     from adv_model import CIFAR10_CNN_small
     from adv_model import CIFAR10_CNN_large
 
-    if args.is_dnn == 1:
-        model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
-    else:
+    # select model
+    if args.model == 'base':
+        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+    elif args.model == 'small':
+        model = CIFAR10_CNN_small(drop_p=args.drop_p).to(device)
+    elif args.model == 'large':
         model = CIFAR10_CNN_large(drop_p=args.drop_p).to(device)
+    elif args.is_dnn == 1:
+        model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 

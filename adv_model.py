@@ -160,12 +160,6 @@ class CIFAR10_CNN_large(nn.Module):
             nn.Conv2d(256,512,3,padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2,2),
-
-            nn.Conv2d(512,1024,3,padding=1),
-            nn.ReLU(),
-            nn.Conv2d(1024,1024,3,padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2),
         )
 
         conv_size = self.get_conv_size((3,32,32))

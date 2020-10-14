@@ -141,7 +141,7 @@ def adv_train2(model, device, train_loader, optimizer, epoch, epsilon, alpha):
             output = model(ae_tm1)
             adv_loss = F.nll_loss(output, trg_tm1)
             # combined loss backward and optimizer.step
-            loss = alpha * clean_loss + (1.0 - alpha) * adv_loss 
+            loss = alpha * clean_loss + (1.0 - alpha) * adv_loss
             
         else:
             loss = clean_loss
@@ -212,14 +212,13 @@ def test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            #data  = torch.flatten(data, start_dim=1)
             output = model(data)
 
             _,output_index = torch.max(output,1)
             total += target.size(0)
             correct += (output_index == target).sum().float()
 
-    acc = correct / len(test_loader.dataset)
+    acc = correct / total
 
     return acc
 

@@ -3,29 +3,29 @@ IS_DNN=0
 export CUDA_VISIBLE_DEVICES=$1
 
 # training param
-MODEL=$2 # base, small, or large (for CNN)
+MODEL='base' # base, small, or large (for CNN)
 LR=0.001
-NUM_EPOCHS=2000
+NUM_EPOCHS=1000
 BATCH_SIZE=64
 EPSILON=0.15
 ALPHA=0.5
-DROP_P=0.0
+DROP_P=$2
 PATIENCE=20
 
 # adversarial training
-ADV_TRAIN=0
+ADV_TRAIN=1
 
 # neptune
-NAME='test-clean-trained-model'
+NAME='transferred-FGSM-ae'
 TAG='none'
 
-LOAD_ADV_TEST=0
-ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/'$MODEL'-eps'$EPSILON'-drop_p'$DROP_P'.ae'
+#LOAD_ADV_TEST=0
+#ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/'$MODEL'-eps'$EPSILON'-drop_p'$DROP_P'.ae'
 
-#LOAD_ADV_TEST=1
-#ADV_TEST_PATH1=$HOME'/dropAdv/data/cnn-adv_train0-eps0.05.ae'
-#ADV_TEST_PATH2=$HOME'/dropAdv/data/cnn-adv_train0-eps0.15-drop_p0.0.ae'
-#ADV_TEST_PATH3=$HOME'/dropAdv/data/cnn-adv_train0-eps0.25.ae'
+LOAD_ADV_TEST=1
+ADV_TEST_PATH1=$HOME'/dropAdv/data/small-eps0.15-drop_p0.0.ae'
+ADV_TEST_PATH2=$HOME'/dropAdv/data/cnn-adv_train0-eps0.15-drop_p0.0.ae'
+ADV_TEST_PATH3=$HOME'/dropAdv/data/large-eps0.15-drop_p0.0.ae'
 
 python3 cifar10.py \
     --model=$MODEL \

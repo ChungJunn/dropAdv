@@ -31,6 +31,10 @@ def makeAE(model, test_loader, epsilon, device):
 
         # make output
         output = model(data)
+        init_pred = output.max(1, keepdim=True)[1]
+
+        if init_pred.item() != target.item():
+            continue
 
         # compute loss
         loss = F.nll_loss(output, target.type(torch.int64))

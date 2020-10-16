@@ -388,6 +388,12 @@ if __name__ == '__main__':
 
                 # run test on adversarial examples
                 adv_test_acc = test(model, device, adv_test_loader)
-                print(eval('args.adv_test_path' + str(i)) + ' test acc: {:.4f}'.format(adv_test_acc))
-                neptune.set_property(eval('args.adv_test_path' + str(i)) + ' adv_test acc', adv_test_acc.item())
+                
+                # obtain the last part of the string
+                mystring = eval('args.adv_test_path' + str(i))
+                mystring = mystring.split('/')[-1]
+
+                # use it as input for netpune
+                print(mystring + ' test acc: {:.4f}'.format(adv_test_acc))
+                neptune.set_property(mystring, adv_test_acc.item())
 

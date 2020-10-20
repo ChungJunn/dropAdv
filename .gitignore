@@ -6,3 +6,4 @@ result/*
 *.pkl
 __pycache__/*
 gpu*
+exp18/*

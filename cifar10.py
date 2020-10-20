@@ -392,8 +392,8 @@ if __name__ == '__main__':
     model = torch.load('./result/' + out_file)
 
     test_acc = test(model, device, test_loader)
-    print('test acc: {:.4f}'.format(test_acc))
-    neptune.set_property('test acc', test_acc.item())
+    print('clean acc: {:.4f}'.format(test_acc))
+    neptune.set_property('clean acc', test_acc.item())
 
     #### normal training ends ####
     # generate or load adversarial examples
@@ -416,8 +416,8 @@ if __name__ == '__main__':
                                                 shuffle=True, num_workers=2, drop_last=True)
 
         adv_test_acc = test(model, device, adv_test_loader)
-        print('test acc: {:.4f}'.format(adv_test_acc))
-        neptune.set_property('adv test acc', adv_test_acc.item())
+        print('white-box FGSM acc: {:.4f}'.format(adv_test_acc))
+        neptune.set_property('white-box FGSM acc', adv_test_acc.item())
 
     # load dataset
     import pickle as pkl

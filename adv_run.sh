@@ -10,20 +10,20 @@ NUM_EPOCHS=1
 BATCH_SIZE=64
 EPSILON=0.3
 ALPHA=0.5
-DROP_P=0.0
+DROP_P=$3
 PATIENCE=20
 
 # adversarial training
-ADV_TRAIN=0
+ADV_TRAIN=$2
 
 # neptune
-NAME='testing'
-TAG='none'
+NAME='exp20-whitebox'
+TAG='clean-train'
 
-for i in 1
+for i in 1 2 3
 do
     LOAD_ADV_TEST=0
-    ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/CNN-'$MODEL'-eps'$EPSILON'-drop_p'$DROP_P'.run'$i'.ae'
+    ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/'$DATASET'-'$MODEL'-eps'$EPSILON'-drop_p'$DROP_P'.run'$i'.ae'
 
     #LOAD_ADV_TEST=1
     #ADV_TEST_PATH1=$HOME'/dropAdv/data/CNN-small-eps'$EPSILON'-drop_p0.0.run1.ae'

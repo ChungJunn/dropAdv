@@ -4,7 +4,7 @@ export CUDA_VISIBLE_DEVICES=$1
 
 # training param
 DATASET='mnist' # mnist or cifar10
-MODEL='modelB' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
+MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
 LR=0.001
 NUM_EPOCHS=1
 BATCH_SIZE=64

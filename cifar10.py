@@ -236,7 +236,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='', default=0)
     parser.add_argument('--tag', type=str, help='', default=0)
     parser.add_argument('--is_dnn', type=int, help='', default=0)
-    parser.add_argument('--model', type=str, help='', default='base')
+    parser.add_argument('--dataset', type=str, help='', default='')
+    parser.add_argument('--model', type=str, help='', default='')
 
     parser.add_argument('--adv_test_out_path', type=str, help='', default=None)
     parser.add_argument('--adv_test_path1', type=str, help='', default=None)
@@ -265,27 +266,8 @@ if __name__ == '__main__':
     neptune.append_tag(args.tag)
     args.name = experiment.id
 
-    # dataset
     batch_size = args.batch_size
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # reload valid and testloader with batch_size
-    cifar_train = dset.CIFAR10("./data", train=True,
-                               transform=transforms.ToTensor(),
-                               target_transform=None, download=True)
-    cifar_test = dset.CIFAR10("./data", train=False,
-                              transform=transforms.ToTensor(),
-                              target_transform=None, download=True)
-
-    # create valid dataset
-    datasets = torch.utils.data.random_split(cifar_train, [45000, 5000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
-
-    cifar_train, cifar_valid = datasets[0], datasets[1]
-    train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size,
-                                      shuffle=True,num_workers=2,drop_last=True)
-    valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size,
-                                      shuffle=True,num_workers=2,drop_last=True)
-    test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
-                                      shuffle=False,num_workers=2,drop_last=True)
 
     # training parameters
     learning_rate=args.lr
@@ -294,18 +276,74 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     out_file = args.name + '.pth'
 
-    from adv_model import CIFAR10_CNN_small
-    from adv_model import CIFAR10_CNN_large
+    if args.dataset == 'mnist':
+        # MNIST dataset
+        mnist_train = dset.MNIST("./data", train=True,
+                                   transform=transforms.ToTensor(),
+                                   target_transform=None, download=True)
+        mnist_test = dset.MNIST("./data", train=False,
+                                  transform=transforms.ToTensor(),
+                                  target_transform=None, download=True)
 
-    # select model
-    if args.model == 'base':
-        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
-    elif args.model == 'small':
-        model = CIFAR10_CNN_small(drop_p=args.drop_p).to(device)
-    elif args.model == 'large':
-        model = CIFAR10_CNN_large(drop_p=args.drop_p).to(device)
-    elif args.is_dnn == 1:
-        model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+        # create valid dataset
+        datasets = torch.utils.data.random_split(mnist_train, [54000, 6000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
+        mnist_train, mnist_valid = datasets[0], datasets[1]
+
+        train_loader = torch.utils.data.DataLoader(mnist_train,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        valid_loader = torch.utils.data.DataLoader(mnist_valid,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        test_loader = torch.utils.data.DataLoader(mnist_test,batch_size=batch_size,
+                                          shuffle=False,num_workers=2,drop_last=True)
+
+        from adv_model import MNIST_LeNet_plus, MNIST_modelB, MNIST_modelA
+        if args.model == 'lenet':
+            model = MNIST_LeNet_plus(drop_p=args.drop_p).to(device)
+        elif args.model == 'modelB':
+            model = MNIST_modelB().to(device)
+        elif args.model == 'modelA':
+            model = MNIST_modelA().to(device)
+        else:
+            print('model must be lenet, modelB, or modelA')
+            import sys; sys.exit(0)
+
+    elif args.dataset == 'cifar10':
+        # CIFAR10 dataset
+        # reload valid and testloader with batch_size
+        cifar_train = dset.CIFAR10("./data", train=True,
+                                   transform=transforms.ToTensor(),
+                                   target_transform=None, download=True)
+        cifar_test = dset.CIFAR10("./data", train=False,
+                                  transform=transforms.ToTensor(),
+                                  target_transform=None, download=True)
+        from adv_model import CIFAR10_CNN_small
+        from adv_model import CIFAR10_CNN_large
+
+        # create valid dataset
+        datasets = torch.utils.data.random_split(cifar_train, [45000, 5000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
+
+        cifar_train, cifar_valid = datasets[0], datasets[1]
+        
+        train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
+                                          shuffle=False,num_workers=2,drop_last=True)
+        # select model
+        if args.model == 'base':
+            model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
+        elif args.model == 'small':
+            model = CIFAR10_CNN_small(drop_p=args.drop_p).to(device)
+        elif args.model == 'large':
+            model = CIFAR10_CNN_large(drop_p=args.drop_p).to(device)
+        elif args.is_dnn == 1:
+            model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+
+    else:
+        print("data must be either mnist or cifar10")
+        import sys; sys.exit(0)
+        
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -320,7 +358,7 @@ if __name__ == '__main__':
     print(optimizer)
     print('=' * 90)
 
-    epoch =1
+    epoch = 1
     # train normal model
     for epoch in range(1, num_epoch + 1):
         if args.adv_train == 0:
@@ -360,7 +398,7 @@ if __name__ == '__main__':
     #### normal training ends ####
     # generate or load adversarial examples
     if args.load_adv_test == 0:
-        test_loader_ = torch.utils.data.DataLoader(cifar_test,batch_size=1,
+        test_loader_ = torch.utils.data.DataLoader(mnist_test,batch_size=1, #TODO change name of testset
                                           shuffle=False,num_workers=2,drop_last=True)
 
         # adversarial examples

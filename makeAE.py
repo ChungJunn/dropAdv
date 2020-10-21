@@ -8,20 +8,29 @@ import sys
 
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
+from torch.autograd import Variable
+
+def where(cond, x, y):
+    """
+    code from :
+    https://discuss.pytorch.org/t/how-can-i-do-the-operation-the-same-as-np-where/1329/8
+    """
+    cond = cond.float()
+    return (cond*x) + ((1-cond)*y)
 
 '''
 code adapted from https://github.com/1Konny/FGSM/blob/master/adversary.py
 '''
-def i_fgsm(self, x, y, targeted=False, eps=0.03, alpha=1, iteration=1, x_val_min=-1, x_val_max=1):
+def i_fgsm(net, x, y, criterion, targeted=False, eps=0.03, alpha=1, iteration=1, x_val_min=0, x_val_max=1):
     x_adv = Variable(x.data, requires_grad=True)
     for i in range(iteration):
-        h_adv = self.net(x_adv)
+        h_adv = net(x_adv)
         if targeted:
-            cost = self.criterion(h_adv, y)
+            cost = criterion(h_adv, y)
         else:
-            cost = -self.criterion(h_adv, y)
+            cost = -criterion(h_adv, y)
 
-        self.net.zero_grad()
+        net.zero_grad()
         if x_adv.grad is not None:
             x_adv.grad.data.fill_(0)
         cost.backward()
@@ -33,8 +42,8 @@ def i_fgsm(self, x, y, targeted=False, eps=0.03, alpha=1, iteration=1, x_val_min
         x_adv = torch.clamp(x_adv, x_val_min, x_val_max)
         x_adv = Variable(x_adv.data, requires_grad=True)
 
-    h = self.net(x)
-    h_adv = self.net(x_adv)
+    h = net(x)
+    h_adv = net(x_adv)
 
     return x_adv, h_adv, h
 
@@ -50,6 +59,28 @@ def fgsm_attack(image, epsilon, data_grad):
     perturbed_image = torch.clamp(perturbed_image, 0, 1)
 
     return perturbed_image
+
+def makeAE_i_fgsm(model, test_loader, epsilon, alpha, iteration, device):
+    model.eval()
+
+    adv_dataset = []
+    # feed the model with example 
+    for data, target in test_loader:
+        data, target = data.to(device), target.to(device)
+
+        # check if model correctly guesses 
+        output = model(data)
+        init_pred = output.max(1, keepdim=True)[1]
+
+        if init_pred.item() != target.item():
+            continue
+
+        # obtain i-fgsm adversary
+        ae, h_adv, h = i_fgsm(model, data, target, criterion=F.nll_loss, targeted=False, eps=epsilon, alpha=alpha, iteration=iteration)
+
+        adv_dataset.append([ae, target.item()])
+
+    return adv_dataset 
 
 def makeAE(model, test_loader, epsilon, device):
     model.train() # dropout in working as adv ex is generated

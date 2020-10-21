@@ -3,10 +3,10 @@ IS_DNN=0
 export CUDA_VISIBLE_DEVICES=$1
 
 # training param
-DATASET='cifar10' # mnist or cifar10
-MODEL=$2 # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
+DATASET='mnist' # mnist or cifar10
+MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
 LR=0.001
-NUM_EPOCHS=3
+NUM_EPOCHS=1
 BATCH_SIZE=64
 EPSILON=0.3
 ALPHA=0.5
@@ -14,13 +14,13 @@ DROP_P=0.0
 PATIENCE=20
 
 # adversarial training
-ADV_TRAIN=0
+ADV_TRAIN=1
 
 # neptune
-NAME='exp21-whitebox-attack'
+NAME='testing-ifgsm'
 TAG='testing'
 
-for i in 1 2 3
+for i in 1
 do
     LOAD_ADV_TEST=0
     ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/'$DATASET'-'$MODEL'-eps'$EPSILON'-drop_p'$DROP_P'.run'$i'.ae'

@@ -11,7 +11,8 @@ import numpy as np
 from torch.utils.data import DataLoader
 from adv_data import advDataset
 from adv_model import CIFAR10_CNN_model
-from makeAE import makeAE
+from makeAE import makeAE, makeAE_i_fgsm 
+from adv_utils import adv_train1, adv_train2, adv_test
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -65,148 +66,6 @@ def validate(model, device, valid_loader):
 
     return total_loss / batch_idx
 
-def fgsm_attack(image, epsilon, data_grad):
-    # Collect the element-wise sign of the data gradient
-    sign_data_grad = data_grad.sign()
-    # Create the perturbed image by adjusting each pixel of the input image
-    perturbed_image = image + epsilon * sign_data_grad
-    # Adding clipping to maintain [0,1] range
-    perturbed_image = torch.clamp(perturbed_image, 0, 1)
-    # Return the perturbed image
-    return perturbed_image
-
-def adv_train1(model, device, train_loader, optimizer, epoch, epsilon, alpha):
-    model.train()
-    total_loss = 0.0
-
-    for batch_idx,(data,target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
-        #data = torch.flatten(data, start_dim=1)
-        # requires grads
-        data.requires_grad = True
-    
-        optimizer.zero_grad()
-
-        output = model(data)
-        clean_loss = F.nll_loss(output, target)
-
-        # call FGSM attack
-        clean_loss.backward(retain_graph=True)
-        data_grad = data.grad.data
-
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
-
-        # clean grad
-        optimizer.zero_grad()
-
-        # forward data to obtain adv loss
-        output = model(perturbed_data)
-
-        adv_loss = F.nll_loss(output, target)
-
-        # combined loss backward and optimizer.step
-        loss = alpha * clean_loss + (1.0 - alpha) * adv_loss
-
-        total_loss += loss.item()
-
-        loss.backward()
-        optimizer.step()
-
-    return total_loss / batch_idx
-
-def adv_train2(model, device, train_loader, optimizer, epoch, epsilon, alpha):
-    model.train()
-    total_loss = 0.0
-    
-    ae_tm1 = None
-    trg_tm1 = None
-    
-    for batch_idx,(data,target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
-
-        # requires grads
-        data.requires_grad = True
-    
-        optimizer.zero_grad()
-
-        output = model(data)
-        clean_loss = F.nll_loss(output, target)
-
-        # call FGSM attack
-        clean_loss.backward(retain_graph=True)
-        data_grad = data.grad.data
-
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
-        optimizer.zero_grad()
-
-        # forward data to obtain adv loss
-        if ae_tm1 is not None:
-            output = model(ae_tm1)
-            adv_loss = F.nll_loss(output, trg_tm1)
-            # combined loss backward and optimizer.step
-            loss = alpha * clean_loss + (1.0 - alpha) * adv_loss
-            
-        else:
-            loss = clean_loss
-
-        total_loss += loss.item()
-        loss.backward()
-        optimizer.step()
-
-        # reserve the adversarial example
-        ae_tm1 = perturbed_data
-        trg_tm1 = target
-
-    return total_loss / batch_idx
-
-def adv_test(model, device, test_loader, epsilon):
-    correct = 0
-    total = 0
-    
-    for data, target in test_loader:
-        data, target = data.to(device), target.to(device)
-        #data  = torch.flatten(data, start_dim=1)
-
-        # create perturbed data
-        data.requires_grad = True
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        data_grad = data.grad.data
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
-
-        # evaluate
-        output = model(perturbed_data)
-        _,output_index = torch.max(output,1)
-        total += target.size(0)
-        correct += (output_index == target).sum().float()
-
-    acc = correct / len(test_loader.dataset)
-
-    return acc
-
-def adv_validate(model, device, valid_loader, epsilon):
-    loss_total = 0.0
-    
-    for batch_idx, (data, target) in enumerate(valid_loader):
-        data, target = data.to(device), target.to(device)
-
-        # create perturbed data
-        data.requires_grad = True
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        data_grad = data.grad.data
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
-
-        # evaluate
-        output = model(perturbed_data)
-        adv_loss = F.nll_loss(output, target)
-        loss_total += adv_loss.item()
-
-    avg_loss = loss_total / batch_idx
-
-    return avg_loss
 
 def test(model, device, test_loader):
     correct = 0
@@ -224,6 +83,57 @@ def test(model, device, test_loader):
     acc = correct / total
 
     return acc
+
+def load_dataset(dataset):
+    if dataset == 'mnist':
+        mnist_train = dset.MNIST("./data", train=True,
+                                   transform=transforms.ToTensor(),
+                                   target_transform=None, download=True)
+        mnist_test = dset.MNIST("./data", train=False,
+                                  transform=transforms.ToTensor(),
+                                  target_transform=None, download=True)
+
+        # create valid dataset
+        datasets = torch.utils.data.random_split(mnist_train, [54000, 6000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
+        mnist_train, mnist_valid = datasets[0], datasets[1]
+
+        train_loader = torch.utils.data.DataLoader(mnist_train,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        valid_loader = torch.utils.data.DataLoader(mnist_valid,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        test_loader = torch.utils.data.DataLoader(mnist_test,batch_size=batch_size,
+                                          shuffle=False,num_workers=2,drop_last=True)
+
+        return train_loader, valid_loader, test_loader
+    
+    elif args.dataset == 'cifar10':
+        # CIFAR10 dataset
+        # reload valid and testloader with batch_size
+        cifar_train = dset.CIFAR10("./data", train=True,
+                                   transform=transforms.ToTensor(),
+                                   target_transform=None, download=True)
+        cifar_test = dset.CIFAR10("./data", train=False,
+                                  transform=transforms.ToTensor(),
+                                  target_transform=None, download=True)
+
+        # create valid dataset
+        datasets = torch.utils.data.random_split(cifar_train, [45000, 5000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
+
+        cifar_train, cifar_valid = datasets[0], datasets[1]
+        
+        train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
+                                          shuffle=False,num_workers=2,drop_last=True)
+        
+        return train_loader, valid_loader, test_loader
+
+    else:
+        print("data must be either mnist or cifar10")
+        import sys; sys.exit(0)
+        return
 
 if __name__ == '__main__':
     import argparse
@@ -274,30 +184,13 @@ if __name__ == '__main__':
     # training parameters
     learning_rate=args.lr
     num_epoch=args.num_epochs
-
     torch.manual_seed(seed)
     out_file = args.name + '.pth'
 
+    # load datasets
+    train_loader, valid_loader, test_loader = load_dataset(args.dataset)
+   
     if args.dataset == 'mnist':
-        # MNIST dataset
-        mnist_train = dset.MNIST("./data", train=True,
-                                   transform=transforms.ToTensor(),
-                                   target_transform=None, download=True)
-        mnist_test = dset.MNIST("./data", train=False,
-                                  transform=transforms.ToTensor(),
-                                  target_transform=None, download=True)
-
-        # create valid dataset
-        datasets = torch.utils.data.random_split(mnist_train, [54000, 6000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
-        mnist_train, mnist_valid = datasets[0], datasets[1]
-
-        train_loader = torch.utils.data.DataLoader(mnist_train,batch_size=batch_size,
-                                          shuffle=True,num_workers=2,drop_last=True)
-        valid_loader = torch.utils.data.DataLoader(mnist_valid,batch_size=batch_size,
-                                          shuffle=True,num_workers=2,drop_last=True)
-        test_loader = torch.utils.data.DataLoader(mnist_test,batch_size=batch_size,
-                                          shuffle=False,num_workers=2,drop_last=True)
-
         from adv_model import MNIST_LeNet_plus, MNIST_modelB, MNIST_modelA
         if args.model == 'lenet':
             model = MNIST_LeNet_plus(drop_p=args.drop_p).to(device)
@@ -308,30 +201,7 @@ if __name__ == '__main__':
         else:
             print('model must be lenet, modelB, or modelA')
             import sys; sys.exit(0)
-
     elif args.dataset == 'cifar10':
-        # CIFAR10 dataset
-        # reload valid and testloader with batch_size
-        cifar_train = dset.CIFAR10("./data", train=True,
-                                   transform=transforms.ToTensor(),
-                                   target_transform=None, download=True)
-        cifar_test = dset.CIFAR10("./data", train=False,
-                                  transform=transforms.ToTensor(),
-                                  target_transform=None, download=True)
-        from adv_model import CIFAR10_CNN_small
-        from adv_model import CIFAR10_CNN_large
-
-        # create valid dataset
-        datasets = torch.utils.data.random_split(cifar_train, [45000, 5000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
-
-        cifar_train, cifar_valid = datasets[0], datasets[1]
-        
-        train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size,
-                                          shuffle=True,num_workers=2,drop_last=True)
-        valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size,
-                                          shuffle=True,num_workers=2,drop_last=True)
-        test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
-                                          shuffle=False,num_workers=2,drop_last=True)
         # select model
         if args.model == 'base':
             model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
@@ -350,11 +220,9 @@ if __name__ == '__main__':
             model = ResNet(depth=18, num_classes=10).to(device)
         elif args.is_dnn == 1:
             model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
-
     else:
-        print("data must be either mnist or cifar10")
+        print('model must be mnist or cifar10')
         import sys; sys.exit(0)
-        
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -370,6 +238,7 @@ if __name__ == '__main__':
     print('=' * 90)
 
     epoch = 1
+
     # train normal model
     for epoch in range(1, num_epoch + 1):
         if args.adv_train == 0:
@@ -409,11 +278,14 @@ if __name__ == '__main__':
     #### normal training ends ####
     # generate or load adversarial examples
     if args.load_adv_test == 0:
-        test_loader_ = torch.utils.data.DataLoader(cifar_test,batch_size=1, #TODO change name of testset
+        test_loader_ = torch.utils.data.DataLoader(mnist_test,batch_size=1, #TODO change name of testset
                                           shuffle=False,num_workers=2,drop_last=True)
 
         # adversarial examples
-        adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
+        # adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
+
+        iteration = 2
+        adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device)
 
         # save into pkl file
         # filename = cnn-<trainscheme>-<eps>.pth

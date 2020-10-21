@@ -7,3 +7,4 @@ result/*
 __pycache__/*
 gpu*
 exp18/*
+*.jpg

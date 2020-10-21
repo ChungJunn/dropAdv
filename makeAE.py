@@ -77,13 +77,15 @@ def makeAE_i_fgsm(model, test_loader, epsilon, alpha, iteration, device):
 
         # obtain i-fgsm adversary
         ae, h_adv, h = i_fgsm(model, data, target, criterion=F.nll_loss, targeted=False, eps=epsilon, alpha=alpha, iteration=iteration)
+        ae = ae.detach().cpu().numpy()
 
         adv_dataset.append([ae, target.item()])
 
     return adv_dataset 
 
 def makeAE(model, test_loader, epsilon, device):
-    model.train() # dropout in working as adv ex is generated
+    model.eval() # dropout not working as adv ex is generated
+    #model.train() # dropout in working as adv ex is generated
 
     adv_dataset = []
     # feed the model with example 

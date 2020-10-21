@@ -278,14 +278,33 @@ if __name__ == '__main__':
     #### normal training ends ####
     # generate or load adversarial examples
     if args.load_adv_test == 0:
-        test_loader_ = torch.utils.data.DataLoader(mnist_test,batch_size=1, #TODO change name of testset
+        if args.dataset == 'mnist':
+            testset = dset.MNIST("./data", train=False,
+                                  transform=transforms.ToTensor(),
+                                  target_transform=None, download=True)
+        elif args.dataset == 'cifar10':
+            testset = dset.CIFAR10("./data", train=False,
+                                  transform=transforms.ToTensor(),
+                                  target_transform=None, download=True)
+        else:
+            print('dataset must be mnist or cifar10')
+            import sys; sys.exit(0)
+        datasets = torch.utils.data.random_split(testset, [100, 9900], torch.Generator().manual_seed(42))
+        testset = datasets[0]
+
+        test_loader_ = torch.utils.data.DataLoader(testset,batch_size=1,
                                           shuffle=False,num_workers=2,drop_last=True)
 
         # adversarial examples
-        # adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
+        adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
 
-        iteration = 2
-        adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device)
+        #iteration = 40
+        #adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device)
+        import matplotlib.pyplot as plt 
+        for i in range(10):
+            sample = adv_test_data[i * 9][0]
+            samp_img = sample.reshape((28,28))
+            plt.imsave('sample' + str(i) + '.jpg', samp_img, cmap='gray')
 
         # save into pkl file
         # filename = cnn-<trainscheme>-<eps>.pth

@@ -18,6 +18,7 @@ warnings.filterwarnings('ignore')
 import os
 import neptune
 
+
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
     total_loss = 0.0
@@ -249,7 +250,6 @@ if __name__ == '__main__':
     parser.add_argument('--adv_test_path7', type=str, help='', default=None)
     parser.add_argument('--adv_test_path8', type=str, help='', default=None)
     parser.add_argument('--adv_test_path9', type=str, help='', default=None)
-    parser.add_argument('--adv_test_path10', type=str, help='', default=None)
     parser.add_argument('--load_adv_test', type=int, help='', default='')
     parser.add_argument('--seed', type=int, help='the code will generate it automatically', default=0)
     args = parser.parse_args()
@@ -422,7 +422,7 @@ if __name__ == '__main__':
     # load dataset
     import pickle as pkl
     if args.load_adv_test == 1:
-        for i in range(1,11):
+        for i in range(1,10):
             if eval('args.adv_test_path' + str(i)) is not None:
                 with open(eval('args.adv_test_path' + str(i)), 'rb') as fp:
                     adv_test_data = pkl.load(fp)

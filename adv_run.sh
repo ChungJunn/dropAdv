@@ -6,19 +6,19 @@ export CUDA_VISIBLE_DEVICES=$1
 DATASET='mnist' # mnist or cifar10
 MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
 LR=0.001
-NUM_EPOCHS=1
+NUM_EPOCHS=1000
 BATCH_SIZE=64
 EPSILON=0.3
 ALPHA=0.5
-DROP_P=$3
+DROP_P=$2
 PATIENCE=20
 
 # adversarial training
-ADV_TRAIN=$2
+ADV_TRAIN=1
 
 # neptune
-NAME='exp20-whitebox'
-TAG='clean-train'
+NAME='exp21-whitebox'
+TAG='none'
 
 for i in 1 2 3
 do

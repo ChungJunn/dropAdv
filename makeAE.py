@@ -15,6 +15,8 @@ def fgsm_attack(image, epsilon, data_grad):
 
     perturbed_image = image + epsilon * sign_data_grad
 
+    perturbed_image = torch.clamp(perturbed_image, 0, 1)
+
     return perturbed_image
 
 def makeAE(model, test_loader, epsilon, device):

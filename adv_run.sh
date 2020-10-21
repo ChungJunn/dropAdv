@@ -9,6 +9,7 @@ LR=0.001
 NUM_EPOCHS=1
 BATCH_SIZE=64
 EPSILON=0.3
+ITERATION=40
 ALPHA=0.5
 DROP_P=0.0
 PATIENCE=20
@@ -43,6 +44,7 @@ do
         --num_epochs=$NUM_EPOCHS \
         --batch_size=$BATCH_SIZE \
         --epsilon=$EPSILON \
+        --iteration=$ITERATION \
         --alpha=$ALPHA \
         --patience=$PATIENCE \
         --name=$NAME \

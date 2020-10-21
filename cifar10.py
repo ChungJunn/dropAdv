@@ -18,6 +18,8 @@ warnings.filterwarnings('ignore')
 import os
 import neptune
 
+import sys
+sys.path.insert(1, '/home/chl/wide-resnet.pytorch/networks')
 
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -337,6 +339,15 @@ if __name__ == '__main__':
             model = CIFAR10_CNN_small(drop_p=args.drop_p).to(device)
         elif args.model == 'large':
             model = CIFAR10_CNN_large(drop_p=args.drop_p).to(device)
+        elif args.model == 'wide-resnet':
+            from wide_resnet import Wide_ResNet
+            model = Wide_ResNet(28, 10, args.drop_p, 10).to(device)
+        elif args.model == 'vgg':
+            from vggnet import VGG
+            model = VGG(depth=11, num_classes=10).to(device)
+        elif args.model == 'resnet':
+            from resnet import ResNet 
+            model = ResNet(depth=18, num_classes=10).to(device)
         elif args.is_dnn == 1:
             model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
 
@@ -398,7 +409,7 @@ if __name__ == '__main__':
     #### normal training ends ####
     # generate or load adversarial examples
     if args.load_adv_test == 0:
-        test_loader_ = torch.utils.data.DataLoader(mnist_test,batch_size=1, #TODO change name of testset
+        test_loader_ = torch.utils.data.DataLoader(cifar_test,batch_size=1, #TODO change name of testset
                                           shuffle=False,num_workers=2,drop_last=True)
 
         # adversarial examples

@@ -134,6 +134,38 @@ def load_dataset(dataset):
         print("data must be either mnist or cifar10")
         import sys; sys.exit(0)
         return
+        
+def fgsm_test(model, testset, epsilon, device, out_file, neptune):
+    test_loader_ = torch.utils.data.DataLoader(testset,batch_size=1,
+                                      shuffle=False,num_workers=2,drop_last=True)
+
+    # adversarial examples
+    adv_test_data = makeAE(model, test_loader_, epsilon, device)
+
+    ''' # visualize samples
+    import matplotlib.pyplot as plt 
+    for i in range(10):
+        sample = adv_test_data[i * 9][0]
+        samp_img = sample.reshape((28,28))
+        plt.imsave('sample' + str(i) + '.jpg', samp_img, cmap='gray')
+    '''
+
+    # save into pkl file
+    # filename = cnn-<trainscheme>-<eps>.pth
+    import pickle as pkl
+    with open(out_file, 'wb') as fp:
+        pkl.dump(adv_test_data, fp)
+
+    # dataloader
+    adv_test_dataset = advDataset(adv_test_data)
+    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+                                            shuffle=True, num_workers=2, drop_last=True)
+
+    adv_test_acc = test(model, device, adv_test_loader)
+    print('white-box FGSM acc: {:.4f}'.format(adv_test_acc))
+    neptune.set_property('white-box FGSM acc', adv_test_acc.item())
+
+    return
 
 if __name__ == '__main__':
     import argparse
@@ -277,49 +309,55 @@ if __name__ == '__main__':
 
     #### normal training ends ####
     # generate or load adversarial examples
-    if args.load_adv_test == 0:
-        if args.dataset == 'mnist':
-            testset = dset.MNIST("./data", train=False,
-                                  transform=transforms.ToTensor(),
-                                  target_transform=None, download=True)
-        elif args.dataset == 'cifar10':
-            testset = dset.CIFAR10("./data", train=False,
-                                  transform=transforms.ToTensor(),
-                                  target_transform=None, download=True)
-        else:
-            print('dataset must be mnist or cifar10')
-            import sys; sys.exit(0)
-        datasets = torch.utils.data.random_split(testset, [100, 9900], torch.Generator().manual_seed(42))
-        testset = datasets[0]
+    if args.dataset == 'mnist':
+        testset = dset.MNIST("./data", train=False,
+                              transform=transforms.ToTensor(),
+                              target_transform=None, download=True)
+    elif args.dataset == 'cifar10':
+        testset = dset.CIFAR10("./data", train=False,
+                              transform=transforms.ToTensor(),
+                              target_transform=None, download=True)
+    else:
+        print('dataset must be mnist or cifar10')
+        import sys; sys.exit(0)
 
-        test_loader_ = torch.utils.data.DataLoader(testset,batch_size=1,
-                                          shuffle=False,num_workers=2,drop_last=True)
+    fgsm_test(model, testset, args.epsilon, device, args.adv_test_out_path, neptune)
+    ''' 
+    def i_fgsm_test(model, testset, epsilon, alpha, iteration, device, netpune):
 
-        # adversarial examples
-        adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
+    datasets = torch.utils.data.random_split(testset, [100, 9900], torch.Generator().manual_seed(42))
+    testset = datasets[0]
 
-        #iteration = 40
-        #adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device)
-        import matplotlib.pyplot as plt 
-        for i in range(10):
-            sample = adv_test_data[i * 9][0]
-            samp_img = sample.reshape((28,28))
-            plt.imsave('sample' + str(i) + '.jpg', samp_img, cmap='gray')
+    test_loader_ = torch.utils.data.DataLoader(testset,batch_size=1,
+                                      shuffle=False,num_workers=2,drop_last=True)
 
-        # save into pkl file
-        # filename = cnn-<trainscheme>-<eps>.pth
-        import pickle as pkl
-        with open(args.adv_test_out_path, 'wb') as fp:
-            pkl.dump(adv_test_data, fp)
+    # adversarial examples
+    adv_test_data = makeAE(model, test_loader_, args.epsilon, device)
 
-        # dataloader
-        adv_test_dataset = advDataset(adv_test_data)
-        adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
-                                                shuffle=True, num_workers=2, drop_last=True)
+    # iteration = 40
+    # adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device)
 
-        adv_test_acc = test(model, device, adv_test_loader)
-        print('white-box FGSM acc: {:.4f}'.format(adv_test_acc))
-        neptune.set_property('white-box FGSM acc', adv_test_acc.item())
+    import matplotlib.pyplot as plt 
+    for i in range(10):
+        sample = adv_test_data[i * 9][0]
+        samp_img = sample.reshape((28,28))
+        plt.imsave('sample' + str(i) + '.jpg', samp_img, cmap='gray')
+
+    # save into pkl file
+    # filename = cnn-<trainscheme>-<eps>.pth
+    import pickle as pkl
+    with open(args.adv_test_out_path, 'wb') as fp:
+        pkl.dump(adv_test_data, fp)
+
+    # dataloader
+    adv_test_dataset = advDataset(adv_test_data)
+    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+                                            shuffle=True, num_workers=2, drop_last=True)
+
+    adv_test_acc = test(model, device, adv_test_loader)
+    print('white-box FGSM acc: {:.4f}'.format(adv_test_acc))
+    neptune.set_property('white-box FGSM acc', adv_test_acc.item())
+    '''
 
     # load dataset
     import pickle as pkl

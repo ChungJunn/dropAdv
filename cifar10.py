@@ -142,13 +142,15 @@ def fgsm_test(model, testset, epsilon, device, out_file, neptune):
     # adversarial examples
     adv_test_data = makeAE(model, test_loader_, epsilon, device)
 
-    ''' # visualize samples
+    '''
+     # visualize samples
     import matplotlib.pyplot as plt 
     for i in range(10):
         sample = adv_test_data[i * 9][0]
         samp_img = sample.reshape((28,28))
         plt.imsave('sample' + str(i) + '.jpg', samp_img, cmap='gray')
     '''
+    
 
     # save into pkl file
     # filename = cnn-<trainscheme>-<eps>.pth
@@ -167,7 +169,7 @@ def fgsm_test(model, testset, epsilon, device, out_file, neptune):
 
     return
 
-def i_fgsm_test(model, testset, epsilon, alpha, iteration, device, neptune):
+def i_fgsm_test(model, testset, epsilon, alpha, iteration, device, neptune, dataset):
 
     datasets = torch.utils.data.random_split(testset, [1000, 9000], torch.Generator().manual_seed(42))
     testset = datasets[0]
@@ -175,7 +177,10 @@ def i_fgsm_test(model, testset, epsilon, alpha, iteration, device, neptune):
     test_loader_ = torch.utils.data.DataLoader(testset,batch_size=1,
                                       shuffle=False,num_workers=2,drop_last=True)
 
-    adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device)
+    if dataset == 'mnist':
+        adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device, x_val_min=0, x_val_max=1)
+    elif dataset == 'cifar10':
+        adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=1, iteration=iteration,device=device, x_val_min=-1, x_val_max=1)
     adv_test_dataset = advDataset(adv_test_data)
     adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
                                             shuffle=True, num_workers=2, drop_last=True)
@@ -347,7 +352,7 @@ if __name__ == '__main__':
         import sys; sys.exit(0)
 
     fgsm_test(model, testset, args.epsilon, device, args.adv_test_out_path, neptune)
-    i_fgsm_test(model, testset, args.epsilon, alpha=1.0, iteration=args.iteration, device=device, neptune=neptune)
+    i_fgsm_test(model, testset, args.epsilon, alpha=1.0, iteration=args.iteration, device=device, neptune=neptune, dataset=args.dataset)
 
     # load dataset
     import pickle as pkl

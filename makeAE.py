@@ -60,7 +60,7 @@ def fgsm_attack(image, epsilon, data_grad):
 
     return perturbed_image
 
-def makeAE_i_fgsm(model, test_loader, epsilon, alpha, iteration, device):
+def makeAE_i_fgsm(model, test_loader, epsilon, alpha, iteration, device, x_val_min, x_val_max):
     model.eval()
 
     adv_dataset = []
@@ -76,7 +76,7 @@ def makeAE_i_fgsm(model, test_loader, epsilon, alpha, iteration, device):
             continue
 
         # obtain i-fgsm adversary
-        ae, h_adv, h = i_fgsm(model, data, target, criterion=F.nll_loss, targeted=False, eps=epsilon, alpha=alpha, iteration=iteration)
+        ae, h_adv, h = i_fgsm(model, data, target, criterion=F.nll_loss, targeted=False, eps=epsilon, alpha=alpha, iteration=iteration, x_val_min=x_val_min, x_val_max=x_val_max)
         ae = ae.detach().cpu().numpy()
 
         adv_dataset.append([ae, target.item()])

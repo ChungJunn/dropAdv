@@ -8,3 +8,4 @@ __pycache__/*
 gpu*
 exp18/*
 *.jpg
+tutorials/*

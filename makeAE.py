@@ -6,8 +6,17 @@ import pickle as pkl
 import argparse
 import sys
 
+import six.moves.cPickle as pickle 
+import gzip
+import warnings
+warnings.filterwarnings('ignore')
+import os
+
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
+import os
+import torch.nn as nn
+
 from torch.autograd import Variable
 
 def where(cond, x, y):
@@ -117,12 +126,10 @@ def makeAE(model, test_loader, epsilon, device):
         adv_dataset.append([ae, target.item()])
     
     return adv_dataset
-
+'''
 if __name__ == '__main__':
-    '''
-    args: dataloder, pretrained model, epsilon
-    out: adversarial examples in csv format
-    '''
+    #args: dataloder, pretrained model, epsilon
+    #out: adversarial examples in csv format
     parser = argparse.ArgumentParser()
     parser.add_argument('--epsilon', type=float, help='', default=0)
     parser.add_argument('--model_file', type=str, help='', default=0)
@@ -148,3 +155,221 @@ if __name__ == '__main__':
     # save as pkl
     with open(args.out_file, 'wb') as fp:
         pkl.dump(adv_dataset, fp)
+'''
+
+class mnist_dataloader:
+    def __init__(self, batch_size, seed, tvt):
+        tr_data, val_data, test_data = load_data('../mnist.pkl.gz')
+
+        self.tr_x, self.tr_y = tr_data
+        self.val_x, self.val_y = val_data
+        self.test_x, self.test_y = test_data
+        
+        self.tr_x = self.tr_x.reshape(-1, 28, 28)
+        self.val_x = self.val_x.reshape(-1, 28, 28)
+        self.test_x = self.test_x.reshape(-1, 28, 28)
+
+        if tvt == 'train':
+            self.x, self.y = self.tr_x, self.tr_y
+        elif tvt == 'valid':
+            self.x, self.y = self.val_x, self.val_y
+        else:
+            self.x, self.y = self.test_x, self.test_y
+
+        np.random.seed(seed)
+        np.random.shuffle(self.x)
+        np.random.shuffle(self.y)
+
+        self.idx = 0
+        self.data_len = len(self.x)
+        self.batch_size = batch_size
+        
+    def get_minibatch(self):
+        end_of_data = None
+            
+        rr = list(range(self.idx, self.idx+self.batch_size))
+
+        xs = self.x[rr].reshape(self.batch_size,1,28,28) # bsz x 784
+        ys = self.y[rr] # bsz x 784
+
+        self.idx += self.batch_size
+        if self.idx + self.batch_size >= self.data_len:
+            end_of_data = True
+
+        '''
+        import imageio 
+        samp_img = xs[0].reshape((28,28))
+        imageio.imwrite('mnist_sample.jpg', samp_img)
+        '''
+
+        return xs, ys, end_of_data 
+
+    def reset(self):
+        self.idx = 0
+
+class MNIST_CNN_model(nn.Module):
+    def __init__(self):
+        super(MNIST_CNN_model, self).__init__()
+        self.conv = nn.Sequential(
+            # conv layer 1
+            nn.Conv2d(1, 20, 5, 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2,2),
+
+            # conv layer 2
+            nn.Conv2d(20, 50, 5, 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2,2)
+        )
+        
+        conv_size = self.get_conv_size((1, 28, 28)) # tensor of a MNIST image
+        
+        self.fc = nn.Sequential(
+            nn.Linear(conv_size, 500), # conv_size = 4*4*50
+            nn.Linear(500, 10)
+        )
+    
+    def get_conv_size(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        batch_size, c, h, w = x.data.size() # 32*1*28*28
+        x = self.conv(x)
+        x = x.view(batch_size, -1) # conv_size = 4*4*50
+        x = self.fc(x)
+        return F.log_softmax(x, dim=1)
+
+def load_data(dataset):
+    ''' Loads the dataset
+
+    :type dataset: string
+    :param dataset: the path to the dataset (here MNIST)
+    
+    copied from http://deeplearning.net/ and revised by hchoi
+    '''
+
+    # Download the MNIST dataset if it is not present
+    data_dir, data_file = os.path.split(dataset)
+    if data_dir == "" and not os.path.isfile(dataset):
+        # Check if dataset is in the data directory.
+        new_path = os.path.join(
+            os.path.split(__file__)[0],
+            dataset
+        )
+        if os.path.isfile(new_path) or data_file == 'mnist.pkl.gz':
+            dataset = new_path
+
+    if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
+        from six.moves import urllib
+        origin = (
+            'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
+        )
+        print('Downloading data from %s' % origin)
+        urllib.request.urlretrieve(origin, dataset)
+
+    print('... loading data')
+
+    # Load the dataset
+    with gzip.open(dataset, 'rb') as f:
+        try:
+            train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
+        except:
+            train_set, valid_set, test_set = pickle.load(f)
+    
+    return train_set, valid_set, test_set
+
+if __name__ == '__main__':
+    device = torch.device('cuda')
+    net = torch.load('../tutorials/practice_code/mnist_cnn.pth').to(device)
+
+    bsz = 1
+    seed = 25
+
+    from torchvision import datasets, transforms
+    import torch
+    import torch.utils
+
+    transform = transforms.Compose([transforms.ToTensor()])
+    test_dataset = datasets.MNIST('./tutorials/practice_code/data', train=False,
+        download=True, transform=transform)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=bsz, shuffle=True)
+    
+
+    # test model's accuracy
+    '''
+    preds = []
+    targets = []
+   
+    for xs, ys in test_loader:
+        xs, ys = torch.tensor(xs).type(torch.float32), torch.tensor(ys).type(torch.int64)
+        xs, ys = xs.to(device), ys.to(device)
+        
+        h = net(xs)
+
+        preds.append(torch.argmax(h, axis=-1)) 
+        targets.append(ys.view(-1,1))
+
+    preds = torch.cat(preds, axis=0).detach().cpu().numpy()
+    targets = torch.cat(targets, axis=0).detach().cpu().numpy()
+
+    from sklearn.metrics import accuracy_score
+    print('accuracy: ', accuracy_score(targets, preds))
+    '''
+    import neptune
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    neptune.init('cjlee/dropAdv')
+    experiment = neptune.create_experiment(name='log_mnist_image')
+    neptune.append_tag('tag')
+    
+    for x, y in test_loader:
+        x, y = torch.tensor(x).type(torch.float32), torch.tensor(y).type(torch.int64)
+        x, y = x.to(device), y.to(device)
+        criterion = F.nll_loss
+
+        x_adv, h_adv, h = i_fgsm(net, x, y, criterion, targeted=False, eps=0.3, alpha=0.01, iteration=40, x_val_min=0, x_val_max=1)
+
+        print('label')
+        print(y)
+
+        samp_img = x[0].detach().cpu().numpy().reshape((28,28))
+        fig = plt.figure()
+        plt.imshow(samp_img, cmap='gray')
+        neptune.log_image('original image', fig)
+        plt.clf()
+
+        print('x logits')
+        print(torch.exp(h))
+        print(torch.argmax(h, dim=-1))
+
+        print('x_adv logits')
+        print(torch.exp(h_adv))
+        print(torch.argmax(h_adv, dim=-1))
+
+        samp_img = x_adv[0].detach().cpu().numpy().reshape((28,28))
+        fig = plt.figure()
+        plt.imshow(samp_img, cmap='gray')
+        neptune.log_image('perturbed image', fig)
+        plt.clf()
+
+        break
+
+
+    '''
+
+    x_adv, h_adv, h = i_fgsm(net, x, y, criterion, targeted=False, eps=0.3, alpha=0.3, iteration=1, x_val_min=0, x_val_max=1)
+
+    print('label')
+    print(y)
+
+    print('x logits')
+    print(h)
+    print(torch.argmax(h, dim=-1))
+
+    print('x_adv logits')
+    print(h_adv)
+    print(torch.argmax(h_adv, dim=-1))
+    '''

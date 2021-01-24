@@ -7,9 +7,9 @@ MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB 
 LR=0.001
 NUM_EPOCHS=3
 BATCH_SIZE=32
-DROP_P=0.5
+DROP_P=0.25
 PATIENCE=20
-USE_MYDROPOUT=0
+USE_MYDROPOUT=1
 
 # neptune
 NAME='exp-recap-1'

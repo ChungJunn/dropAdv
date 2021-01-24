@@ -5,7 +5,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 import numpy as np
-from test import DropoutNew as MyDropout
+from adv_utils import DropoutNew
 
 class MNIST_LeNet_plus(nn.Module):
     def __init__(self, drop_p, use_mydropout):
@@ -31,13 +31,12 @@ class MNIST_LeNet_plus(nn.Module):
             )
         elif use_mydropout == 1:
             self.fc_layer = nn.Sequential(
-                MyDropout(p=drop_p),
+                DropoutNew(p_retain_hat=drop_p),
                 nn.Linear(conv_size,1024),
                 nn.ReLU(),
-                MyDropout(p=drop_p),
+                DropoutNew(p_retain_hat=drop_p),
                 nn.Linear(1024,10),
             )
-            
 
     def get_conv_size(self, shape):
         o = self.layer(torch.zeros(1, *shape))

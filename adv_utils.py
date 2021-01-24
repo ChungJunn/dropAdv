@@ -142,3 +142,28 @@ def adv_validate(model, device, valid_loader, epsilon):
     avg_loss = loss_total / batch_idx
 
     return avg_loss
+
+class DropoutNew(nn.Module):
+    def __init__(self, p_retain_hat=0.25):
+        super(DropoutNew, self).__init__()
+        if p_retain_hat < 0 or p_retain_hat > 1:
+            raise ValueError("dropout probability has to be between 0 and 1, but got {}".format(p))
+        self.p_retain_hat = p_retain_hat
+
+    def forward(self, input):
+        if not self.training: return input
+        else:
+            h_max, _ = torch.max(input, dim=1, keepdim=True)
+
+            p_retain1 = (h_max - input) / (2 * h_max)
+            p_retain = p_retain1 + self.p_retain_hat
+
+            m_drop = torch.bernoulli(p_retain)
+
+            out = (input * m_drop) * (1.0 / torch.mean(p_retain, dim=1, keepdim=True))
+            
+        return out
+
+    def __repr__(self):
+        training_str = ', training:' + str(self.training)
+        return self.__class__.__name__ + '(' + 'p=' + str(self.p) + training_str + ')'

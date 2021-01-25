@@ -112,7 +112,7 @@ def adv_test(model, device, test_loader, epsilon):
 
         # evaluate
         output = model(perturbed_data)
-        _,output_index = torch.max(output,1)
+        _, output_index = torch.max(output,1)
         total += target.size(0)
         correct += (output_index == target).sum().float()
 
@@ -166,4 +166,4 @@ class DropoutNew(nn.Module):
 
     def __repr__(self):
         training_str = ', training:' + str(self.training)
-        return self.__class__.__name__ + '(' + 'p=' + str(self.p) + training_str + ')'
+        return self.__class__.__name__ + '(' + 'p_retain_hat=' + str(self.p_retain_hat) + training_str + ')'

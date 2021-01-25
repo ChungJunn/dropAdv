@@ -203,6 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--is_dnn', type=int, help='', default=0)
     parser.add_argument('--dataset', type=str, help='', default='')
     parser.add_argument('--model', type=str, help='', default='')
+    parser.add_argument('--use_mydropout', type=int, help='', default='')
 
     parser.add_argument('--adv_test_out_path', type=str, help='', default=None)
     parser.add_argument('--adv_test_path1', type=str, help='', default=None)
@@ -225,7 +226,7 @@ if __name__ == '__main__':
 
     params = vars(args)
 
-    neptune.init('cjlee/dropAdv')
+    neptune.init('cjlee/dropAdv2')
     experiment = neptune.create_experiment(name=args.name, params=params)
     neptune.append_tag(args.tag)
     args.name = experiment.id
@@ -245,7 +246,7 @@ if __name__ == '__main__':
     if args.dataset == 'mnist':
         from adv_model import MNIST_LeNet_plus, MNIST_modelB, MNIST_modelA
         if args.model == 'lenet':
-            model = MNIST_LeNet_plus(drop_p=args.drop_p).to(device)
+            model = MNIST_LeNet_plus(drop_p=args.drop_p, use_mydropout=args.use_mydropout).to(device)
         elif args.model == 'modelB':
             model = MNIST_modelB().to(device)
         elif args.model == 'modelA':
@@ -366,4 +367,3 @@ if __name__ == '__main__':
                 # use it as input for netpune
                 print(mystring + ' test acc: {:.4f}'.format(adv_test_acc))
                 neptune.set_property(mystring, adv_test_acc.item())
-

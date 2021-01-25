@@ -11,6 +11,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from adv_data import advDataset
 from adv_model import CIFAR10_CNN_model
+from networks.wide_resnet import Wide_ResNet
 from makeAE import makeAE, makeAE_i_fgsm 
 from adv_utils import adv_train1, adv_train2, adv_test
 
@@ -144,7 +145,10 @@ if __name__ == '__main__':
     train_loader, valid_loader, test_loader = load_dataset(args.dataset, args.batch_size)
    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = MNIST_LeNet_plus(drop_p=args.drop_p, use_mydropout=args.use_mydropout).to(device)
+    if args.model == 'lenet':
+        model = MNIST_LeNet_plus(drop_p=args.drop_p, use_mydropout=args.use_mydropout).to(device)
+    elif args.model == 'wide-resnet':
+        model = Wide_ResNet(28, 10, args.drop_p, 10).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 

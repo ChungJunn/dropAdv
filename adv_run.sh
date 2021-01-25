@@ -3,23 +3,24 @@ IS_DNN=0
 export CUDA_VISIBLE_DEVICES=$1
 
 # training param
-DATASET='mnist' # mnist or cifar10
-MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
+DATASET='cifar10' # mnist or cifar10
+MODEL='wide-resnet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
 LR=0.001
 NUM_EPOCHS=1000
 BATCH_SIZE=64
 EPSILON=0.3    #for cifar10 : 0.03137
 ITERATION=40
-ALPHA=0.01
+ALPHA=0.5
 DROP_P=$2
 PATIENCE=20
+USE_MYDROPOUT=1
 
 # adversarial training
 ADV_TRAIN=$3
 
 # neptune
-NAME='exp-recap-1'
-TAG='mnist-performance'
+NAME='21.01.25.exp1'
+TAG='lenet-dropoutNew'
 
 for i in 1 2 3
 do
@@ -74,5 +75,6 @@ do
         --adv_test_path8=$ADV_TEST_PATH8 \
         --adv_test_path9=$ADV_TEST_PATH9 \
         --load_adv_test=$LOAD_ADV_TEST \
-        --adv_test_out_path=$ADV_TEST_OUT_PATH
+        --adv_test_out_path=$ADV_TEST_OUT_PATH \
+        --use_mydropout=$USE_MYDROPOUT
 done

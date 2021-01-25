@@ -49,6 +49,8 @@ def train(model, device, train_loader, optimizer, epoch):
         # update model parameter using optimizer
         optimizer.step()
 
+        if batch_idx == 10: break
+
     return total_loss / batch_idx
 
 def validate(model, device, valid_loader):
@@ -107,6 +109,37 @@ def load_dataset(dataset, batch_size):
                                           shuffle=False,num_workers=2,drop_last=True)
 
         return train_loader, valid_loader, test_loader
+    
+    elif args.dataset == 'cifar10':
+        input_size = (32,32)
+        # CIFAR10 dataset
+        cifar_transforms = transforms.Compose([
+            transforms.RandomCrop(input_size),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ToTensor()
+        ])
+
+        # reload valid and testloader with batch_size
+        cifar_train = dset.CIFAR10("./data", train=True,
+                                   transform=cifar_transforms,
+                                   target_transform=None, download=True)
+        cifar_test = dset.CIFAR10("./data", train=False,
+                                  transform=cifar_transforms,
+                                  target_transform=None, download=True)
+
+        # create valid dataset
+        datasets = torch.utils.data.random_split(cifar_train, [45000, 5000], torch.Generator().manual_seed(42)) # do not change manual_seed (the advvalidset has been created with this manual seed)
+
+        cifar_train, cifar_valid = datasets[0], datasets[1]
+        
+        train_loader = torch.utils.data.DataLoader(cifar_train,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        valid_loader = torch.utils.data.DataLoader(cifar_valid,batch_size=batch_size,
+                                          shuffle=True,num_workers=2,drop_last=True)
+        test_loader = torch.utils.data.DataLoader(cifar_test,batch_size=batch_size,
+                                          shuffle=False,num_workers=2,drop_last=True)
+        
+        return train_loader, valid_loader, test_loader
 
     else:
         print("data must be either mnist or cifar10")
@@ -126,6 +159,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, help='', default='')
     parser.add_argument('--model', type=str, help='', default='')
     parser.add_argument('--use_mydropout', type=int, help='', default='')
+    parser.add_argument('--use_step_policy', type=int, help='', default='')
 
     parser.add_argument('--seed', type=int, help='the code will generate it automatically', default=0)
     args = parser.parse_args()
@@ -148,9 +182,15 @@ if __name__ == '__main__':
     if args.model == 'lenet':
         model = MNIST_LeNet_plus(drop_p=args.drop_p, use_mydropout=args.use_mydropout).to(device)
     elif args.model == 'wide-resnet':
-        model = Wide_ResNet(28, 10, args.drop_p, 10).to(device)
+        model = Wide_ResNet(28, 10, args.drop_p, 10, args.use_mydropout).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+    if args.use_step_policy == 1:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+        '''
+        based on https://towardsdatascience.com/learning-rate-schedules-and-adaptive-
+        learning-rate-methods-for-deep-learning-2c8f433990d1
+        '''
 
     bc = 0
     patience = args.patience
@@ -162,6 +202,12 @@ if __name__ == '__main__':
 
         val_loss = validate(model, device, valid_loader)
         print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
+        if args.use_step_policy == 1:
+            scheduler.step() 
+            print('scheduler and optimizer info: ')
+            print(scheduler)
+            print(optimizer)
+
         if neptune is not None:
             neptune.log_metric('train_loss', epoch, train_loss)
             neptune.log_metric('valid_loss', epoch, val_loss)
@@ -176,7 +222,7 @@ if __name__ == '__main__':
             if bc >= args.patience:
                 break
 
-    # test the model on clan examples  
+    # test the model on clean examples  
     model = torch.load('./result/' + out_file)
 
     test_acc = test(model, device, test_loader)

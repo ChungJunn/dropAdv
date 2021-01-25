@@ -1,22 +1,23 @@
 #!/bin/bash
-export CUDA_VISIBLE_DEVICES=7
+export CUDA_VISIBLE_DEVICES=$1
 
 # training param
-DATASET='mnist' # mnist or cifar10
-MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
-LR=0.001
-NUM_EPOCHS=3
-BATCH_SIZE=32
+DATASET='cifar10' # mnist or cifar10
+MODEL='wide-resnet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
+LR=$2
+NUM_EPOCHS=1000
+BATCH_SIZE=64
 DROP_P=0.25
 PATIENCE=20
-USE_MYDROPOUT=1
+USE_STEP_POLICY=$3
+USE_MYDROPOUT=0
 
 # neptune
-NAME='exp-recap-1'
-TAG='mnist-performance'
+NAME='21.01.25.exp3'
+TAG='none'
 
-#for i in 1 2 3
-#do
+for i in 1 2 3
+do
     python3 dev_main.py \
         --dataset=$DATASET \
         --model=$MODEL \
@@ -28,4 +29,5 @@ TAG='mnist-performance'
         --tag=$TAG \
         --drop_p=$DROP_P \
         --use_mydropout=$USE_MYDROPOUT \
-#done
+        --use_step_policy=$USE_STEP_POLICY
+done

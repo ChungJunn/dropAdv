@@ -1,10 +1,12 @@
 data/*
+*.pyc
 others/*
 result/*
 *.swp
 *.pth
 *.pkl
 __pycache__/*
+*__pycache__/*
 gpu*
 exp18/*
 *.jpg

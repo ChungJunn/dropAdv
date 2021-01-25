@@ -23,12 +23,18 @@ def conv_init(m):
         init.constant_(m.bias, 0)
 
 class wide_basic(nn.Module):
-    def __init__(self, in_planes, planes, dropout_rate, stride=1):
+    def __init__(self, in_planes, planes, dropout_rate, stride=1, use_mydropout=0):
         super(wide_basic, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
-        self.dropout = nn.Dropout(p=dropout_rate)
-        #self.dropout = DropoutNew(p_retain_hat=dropout_rate)
+        if use_mydropout == 0:
+            self.dropout = nn.Dropout(p=dropout_rate)
+        elif use_mydropout == 1:
+            self.dropout = DropoutNew(p_retain_hat=dropout_rate)
+        else:
+            print("use_mydropout must be either 0 or 1")
+            import sys; sys.exit(-1)
+
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
 
@@ -46,7 +52,7 @@ class wide_basic(nn.Module):
         return out
 
 class Wide_ResNet(nn.Module):
-    def __init__(self, depth, widen_factor, dropout_rate, num_classes):
+    def __init__(self, depth, widen_factor, dropout_rate, num_classes, use_mydropout):
         super(Wide_ResNet, self).__init__()
         self.in_planes = 16
 
@@ -58,18 +64,18 @@ class Wide_ResNet(nn.Module):
         nStages = [16, 16*k, 32*k, 64*k]
 
         self.conv1 = conv3x3(3,nStages[0])
-        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
-        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
-        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
+        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1, use_mydropout=0)
+        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2, use_mydropout=0)
+        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2, use_mydropout=0)
         self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
         self.linear = nn.Linear(nStages[3], num_classes)
 
-    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride):
+    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride, use_mydropout):
         strides = [stride] + [1]*(int(num_blocks)-1)
         layers = []
 
         for stride in strides:
-            layers.append(block(self.in_planes, planes, dropout_rate, stride))
+            layers.append(block(self.in_planes, planes, dropout_rate, stride, use_mydropout))
             self.in_planes = planes
 
         return nn.Sequential(*layers)

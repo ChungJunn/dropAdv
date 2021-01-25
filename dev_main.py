@@ -49,8 +49,6 @@ def train(model, device, train_loader, optimizer, epoch):
         # update model parameter using optimizer
         optimizer.step()
 
-        if batch_idx == 10: break
-
     return total_loss / batch_idx
 
 def validate(model, device, valid_loader):
@@ -183,6 +181,8 @@ if __name__ == '__main__':
         model = MNIST_LeNet_plus(drop_p=args.drop_p, use_mydropout=args.use_mydropout).to(device)
     elif args.model == 'wide-resnet':
         model = Wide_ResNet(28, 10, args.drop_p, 10, args.use_mydropout).to(device)
+    elif args.model == 'vgg11':
+        model = CIFAR10_CNN_model(drop_p=args.drop_p).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
     if args.use_step_policy == 1:

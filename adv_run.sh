@@ -4,23 +4,23 @@ export CUDA_VISIBLE_DEVICES=$1
 
 # training param
 DATASET='cifar10' # mnist or cifar10
-MODEL='wide-resnet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
+MODEL='base' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
 LR=0.001
 NUM_EPOCHS=1000
 BATCH_SIZE=64
 EPSILON=0.3    #for cifar10 : 0.03137
 ITERATION=40
 ALPHA=0.5
-DROP_P=$2
+DROP_P=0.25
 PATIENCE=20
 USE_MYDROPOUT=1
 
 # adversarial training
-ADV_TRAIN=$3
+ADV_TRAIN=0
 
 # neptune
-NAME='21.01.25.exp1'
-TAG='lenet-dropoutNew'
+NAME='21.01.25.debug'
+TAG='none'
 
 for i in 1 2 3
 do

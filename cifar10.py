@@ -273,6 +273,9 @@ if __name__ == '__main__':
             model = ResNet(depth=18, num_classes=10).to(device)
         elif args.is_dnn == 1:
             model = CIFAR10_DNN_model(drop_p=args.drop_p).to(device)
+        else:
+            print('model must be base, small, large, wide-resnet, vgg, or resnet')
+            import sys; sys.exit(0)
     else:
         print('model must be mnist or cifar10')
         import sys; sys.exit(0)

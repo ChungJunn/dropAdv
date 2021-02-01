@@ -14,6 +14,7 @@ from adv_model import CIFAR10_CNN_model
 from networks.wide_resnet import Wide_ResNet
 from makeAE import makeAE, makeAE_i_fgsm 
 from adv_utils import adv_train1, adv_train2, adv_test
+from cifar10 import fgsm_test, i_fgsm_test
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -158,6 +159,12 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, help='', default='')
     parser.add_argument('--use_mydropout', type=int, help='', default='')
     parser.add_argument('--use_step_policy', type=int, help='', default='')
+    parser.add_argument('--weight_decay', type=float, help='', default='')
+    parser.add_argument('--step_size', type=int, help='', default='')
+    parser.add_argument('--gamma', type=float, help='', default='')
+    parser.add_argument('--adv_test_out_path', type=str, help='', default='')
+    parser.add_argument('--iteration', type=int, help='', default='')
+    parser.add_argument('--epsilon', type=float, help='', default='')
 
     parser.add_argument('--seed', type=int, help='the code will generate it automatically', default=0)
     args = parser.parse_args()
@@ -186,7 +193,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
     if args.use_step_policy == 1:
-        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
         '''
         based on https://towardsdatascience.com/learning-rate-schedules-and-adaptive-
         learning-rate-methods-for-deep-learning-2c8f433990d1
@@ -228,3 +235,18 @@ if __name__ == '__main__':
     test_acc = test(model, device, test_loader)
     print('clean acc: {:.4f}'.format(test_acc))
     if neptune is not None: neptune.set_property('clean acc', test_acc.item())
+
+    if args.dataset == 'mnist':
+        testset = dset.MNIST("./data", train=False,
+                              transform=transforms.ToTensor(),
+                              target_transform=None, download=True)
+    elif args.dataset == 'cifar10':
+        testset = dset.CIFAR10("./data", train=False,
+                              transform=transforms.ToTensor(),
+                              target_transform=None, download=True)
+    else:
+        print('dataset must be mnist or cifar10')
+        import sys; sys.exit(0)
+
+    fgsm_test(model, testset, args.epsilon, device, args.adv_test_out_path, neptune)
+    i_fgsm_test(model, testset, args.epsilon, iteration=args.iteration, device=device, neptune=neptune, dataset=args.dataset)

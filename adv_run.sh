@@ -3,28 +3,31 @@ IS_DNN=0
 export CUDA_VISIBLE_DEVICES=$1
 
 # training param
-DATASET='cifar10' # mnist or cifar10
-MODEL='base' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
-LR=0.001
-NUM_EPOCHS=1000
+DATASET='mnist' # mnist or cifar10
+MODEL='lenet' # base, small, or large (for cifar10) || lenet, modelA, or modelB (for mnist)
+LR=0.1
+NUM_EPOCHS=50
 BATCH_SIZE=64
-EPSILON=0.3    #for cifar10 : 0.03137
+EPSILON=0.3 #for cifar10 : 0.03137
 ITERATION=40
 ALPHA=0.5
-DROP_P=0.25
-PATIENCE=20
-USE_MYDROPOUT=1
+DROP_P=0
+PATIENCE=5000
+USE_MYDROPOUT=0
+USE_STEP_POLICY=1
+STEP_SIZE=10
+GAMMA=0.5
 
 # adversarial training
-ADV_TRAIN=0
+ADV_TRAIN=$2
 
 # neptune
-NAME='21.01.25.debug'
+NAME='21.01.30.exp1'
 TAG='none'
 
 for i in 1 2 3
 do
-    #LOAD_ADV_TEST=0
+    LOAD_ADV_TEST=0
     #ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/'$DATASET'-'$MODEL'-eps'$EPSILON'-drop_p'$DROP_P'.run'$i'.ae'
     ADV_TEST_OUT_PATH=$HOME'/dropAdv/data/dummy.ae'
 
@@ -39,16 +42,16 @@ do
     #ADV_TEST_PATH8=$HOME'/dropAdv/data/cifar10-wide-resnet-eps'$EPSILON'-drop_p0.0.run2.ae'
     #ADV_TEST_PATH9=$HOME'/dropAdv/data/cifar10-wide-resnet-eps'$EPSILON'-drop_p0.0.run3.ae'
 
-    LOAD_ADV_TEST=1
-    ADV_TEST_PATH1=$HOME'/dropAdv/data/mnist-lenet-eps'$EPSILON'-drop_p0.0.run1.ae'
-    ADV_TEST_PATH2=$HOME'/dropAdv/data/mnist-lenet-eps'$EPSILON'-drop_p0.0.run2.ae'
-    ADV_TEST_PATH3=$HOME'/dropAdv/data/mnist-lenet-eps'$EPSILON'-drop_p0.0.run3.ae'
-    ADV_TEST_PATH4=$HOME'/dropAdv/data/mnist-modelA-eps'$EPSILON'-drop_p0.0.run1.ae'
-    ADV_TEST_PATH5=$HOME'/dropAdv/data/mnist-modelA-eps'$EPSILON'-drop_p0.0.run2.ae'
-    ADV_TEST_PATH6=$HOME'/dropAdv/data/mnist-modelA-eps'$EPSILON'-drop_p0.0.run3.ae'
-    ADV_TEST_PATH7=$HOME'/dropAdv/data/mnist-modelB-eps'$EPSILON'-drop_p0.0.run1.ae'
-    ADV_TEST_PATH8=$HOME'/dropAdv/data/mnist-modelB-eps'$EPSILON'-drop_p0.0.run2.ae'
-    ADV_TEST_PATH9=$HOME'/dropAdv/data/mnist-modelB-eps'$EPSILON'-drop_p0.0.run3.ae'
+    #LOAD_ADV_TEST=1
+    #ADV_TEST_PATH1=$HOME'/dropAdv/data/mnist-lenet-eps'$EPSILON'-drop_p0.0.run1.ae'
+    #ADV_TEST_PATH2=$HOME'/dropAdv/data/mnist-lenet-eps'$EPSILON'-drop_p0.0.run2.ae'
+    #ADV_TEST_PATH3=$HOME'/dropAdv/data/mnist-lenet-eps'$EPSILON'-drop_p0.0.run3.ae'
+    #ADV_TEST_PATH4=$HOME'/dropAdv/data/mnist-modelA-eps'$EPSILON'-drop_p0.0.run1.ae'
+    #ADV_TEST_PATH5=$HOME'/dropAdv/data/mnist-modelA-eps'$EPSILON'-drop_p0.0.run2.ae'
+    #ADV_TEST_PATH6=$HOME'/dropAdv/data/mnist-modelA-eps'$EPSILON'-drop_p0.0.run3.ae'
+    #ADV_TEST_PATH7=$HOME'/dropAdv/data/mnist-modelB-eps'$EPSILON'-drop_p0.0.run1.ae'
+    #ADV_TEST_PATH8=$HOME'/dropAdv/data/mnist-modelB-eps'$EPSILON'-drop_p0.0.run2.ae'
+    #ADV_TEST_PATH9=$HOME'/dropAdv/data/mnist-modelB-eps'$EPSILON'-drop_p0.0.run3.ae'
 
     python3 cifar10.py \
         --dataset=$DATASET \
@@ -76,5 +79,8 @@ do
         --adv_test_path9=$ADV_TEST_PATH9 \
         --load_adv_test=$LOAD_ADV_TEST \
         --adv_test_out_path=$ADV_TEST_OUT_PATH \
-        --use_mydropout=$USE_MYDROPOUT
+        --use_mydropout=$USE_MYDROPOUT \
+        --use_step_policy=$USE_STEP_POLICY \
+        --step_size=$STEP_SIZE \
+        --gamma=$GAMMA
 done

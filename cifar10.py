@@ -66,7 +66,6 @@ def validate(model, device, valid_loader):
 
     return total_loss / batch_idx
 
-
 def test(model, device, test_loader):
     correct = 0
     total = 0
@@ -78,7 +77,7 @@ def test(model, device, test_loader):
 
             _,output_index = torch.max(output,1)
             total += target.size(0)
-            correct += (output_index == target).sum().float()
+            correct += (output_index == target).sum().float().item()
 
     acc = correct / total
 
@@ -142,7 +141,7 @@ def load_dataset(dataset):
         import sys; sys.exit(0)
         return
         
-def fgsm_test(model, testset, epsilon, device, out_file, neptune):
+def fgsm_test(model, testset, epsilon, device, out_file, neptune, test_batch_size=1000):
     test_loader_ = torch.utils.data.DataLoader(testset,batch_size=1,
                                       shuffle=False,num_workers=2,drop_last=True)
 
@@ -157,7 +156,7 @@ def fgsm_test(model, testset, epsilon, device, out_file, neptune):
 
     # dataloader
     adv_test_dataset = advDataset(adv_test_data)
-    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=test_batch_size,
                                             shuffle=True, num_workers=2, drop_last=True)
 
     adv_test_acc = test(model, device, adv_test_loader)
@@ -166,7 +165,7 @@ def fgsm_test(model, testset, epsilon, device, out_file, neptune):
 
     return
 
-def i_fgsm_test(model, testset, epsilon, alpha, iteration, device, neptune, dataset):
+def i_fgsm_test(model, testset, epsilon, iteration, device, neptune, dataset, alpha=1.0, test_batch_size=1000):
 
     datasets = torch.utils.data.random_split(testset, [1000, 9000], torch.Generator().manual_seed(42))
     testset = datasets[0]
@@ -179,7 +178,7 @@ def i_fgsm_test(model, testset, epsilon, alpha, iteration, device, neptune, data
     elif dataset == 'cifar10':
         adv_test_data = makeAE_i_fgsm(model, test_loader_, args.epsilon, alpha=alpha, iteration=iteration,device=device, x_val_min=-1, x_val_max=1)
     adv_test_dataset = advDataset(adv_test_data)
-    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=batch_size,
+    adv_test_loader = torch.utils.data.DataLoader(adv_test_dataset, batch_size=test_batch_size,
                                             shuffle=True, num_workers=2, drop_last=True)
 
     adv_test_acc = test(model, device, adv_test_loader)
@@ -204,6 +203,9 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, help='', default='')
     parser.add_argument('--model', type=str, help='', default='')
     parser.add_argument('--use_mydropout', type=int, help='', default='')
+    parser.add_argument('--use_step_policy', type=int, help='', default='')
+    parser.add_argument('--step_size', type=int, help='', default='')
+    parser.add_argument('--gamma', type=float, help='', default='')
 
     parser.add_argument('--adv_test_out_path', type=str, help='', default=None)
     parser.add_argument('--adv_test_path1', type=str, help='', default=None)
@@ -280,7 +282,10 @@ if __name__ == '__main__':
         print('model must be mnist or cifar10')
         import sys; sys.exit(0)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+    if args.use_step_policy == 1:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     bc = 0
     patience = args.patience
@@ -312,6 +317,9 @@ if __name__ == '__main__':
         neptune.log_metric('train_loss', epoch, train_loss)
         neptune.log_metric('valid_loss', epoch, val_loss)
 
+        if args.use_step_policy == 1:
+            scheduler.step()
+
         # see if val_acc improves
         if best_val_loss is None or val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -324,8 +332,8 @@ if __name__ == '__main__':
             if bc >= args.patience:
                 break
 
-    # test the model on clan examples  
-    model = torch.load('./result/' + out_file)
+    # test the model on clean examples  
+    # model = torch.load('./result/' + out_file)
 
     test_acc = test(model, device, test_loader)
     print('clean acc: {:.4f}'.format(test_acc))

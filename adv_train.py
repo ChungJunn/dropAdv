@@ -17,6 +17,7 @@ import sys
 import neptune
 
 from adv_model import MNIST_LeNet_plus
+from fgsm_tutorial import ifgsm_test
 
 def train(model, device, train_loader, optimizer):
     model.train()
@@ -48,7 +49,7 @@ def train(model, device, train_loader, optimizer):
 # initialize model and training parameters
 if __name__ == '__main__':
     import argparse
-    from fgsm_tutorial import test
+    from fgsm_tutorial import fgsm_test
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', type=float, help='')
@@ -57,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, help='')
     parser.add_argument('--savepath', type=str, help='')
     parser.add_argument('--epsilon', type=float, help='')
+    parser.add_argument('--iteration', type=int, help='')
     parser.add_argument('--use_scheduler', type=int, help='')
     parser.add_argument('--step_size', type=int, help='')
     parser.add_argument('--gamma', type=float, help='')
@@ -65,6 +67,10 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, help='')
     args = parser.parse_args()
     params = vars(args)
+
+    # add args for ifgsm
+    # import related items
+    # test the code
     
     device = torch.device('cuda')
     model = MNIST_LeNet_plus(0.0,0).to(device) 
@@ -86,6 +92,8 @@ if __name__ == '__main__':
                 transforms.ToTensor(),
                 ])), 
             batch_size=args.batch_size, shuffle=True)
+    x_val_max = 1.0
+    x_val_min = 0.0
 
     train_loss = 0.0
     # define train function
@@ -106,10 +114,15 @@ if __name__ == '__main__':
                 ])), 
             batch_size=1, shuffle=True)
 
-    acc, ex = test(model, device, test_loader, epsilon=0.0)
+    acc, ex = fgsm_test(model, device, test_loader, epsilon=0.0)
     print('eps: 0.0 acc: ', acc)
     neptune.set_property('clean acc', acc)
 
-    acc, ex = test(model, device, test_loader, epsilon=args.epsilon)
+    acc, ex = fgsm_test(model, device, test_loader, epsilon=args.epsilon)
     print('eps: ', args.epsilon, 'acc: ', acc)
     neptune.set_property('fgsm acc', acc)
+
+    ifgsm_alpha = args.epsilon / float(args.iteration)
+    print('ifgsm_alpha: {:.4f}'.format(ifgsm_alpha))
+    acc = ifgsm_test(model, test_loader, args.epsilon, ifgsm_alpha, args.iteration, device, x_val_min, x_val_max)
+    neptune.set_property('ifgsm acc', acc)

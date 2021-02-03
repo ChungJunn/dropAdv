@@ -12,9 +12,8 @@ from torch.utils.data import DataLoader
 from adv_data import advDataset
 from adv_model import CIFAR10_CNN_model
 from networks.wide_resnet import Wide_ResNet
-from makeAE import makeAE, makeAE_i_fgsm 
+from makeAE import makeAE, makeAE_i_fgsm, fgsm_attack 
 from adv_utils import adv_train1, adv_train2, adv_test
-from cifar10 import fgsm_test, i_fgsm_test
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -24,6 +23,41 @@ import neptune
 import sys
 import random
 from adv_model import MNIST_LeNet_plus
+
+def fgsm_test(model, testloader, epsilon, device):
+    # forward to see if correct
+    model.eval()
+    n_total = 0
+    n_correct = 0
+
+    for data, target in testloader:
+        data, target = data.to(device), target.to(device)
+        data.requires_grad=True
+
+        output = model(data)
+        init_pred = output.max(1, keepdim=True)[1]
+
+        if init_pred.item() != target.item():
+            continue
+
+        # if correct make adv_ex
+        loss = F.nll_loss(output, target.type(torch.int64))
+
+        model.zero_grad()
+        loss.backward()
+
+        data_grad = data.grad.data
+        x_tilda = fgsm_attack(data, epsilon, data_grad)
+
+        n_total += 1
+
+        output = model(x_tilda)
+        adv_pred = output.max(1, keepdim=True)[1]
+        
+        if adv_pred.item() == target.item():
+            n_correct +=1
+        
+    return float(n_correct) / float(n_total)
 
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -209,11 +243,6 @@ if __name__ == '__main__':
 
         val_loss = validate(model, device, valid_loader)
         print('epoch {:d} | tr_loss: {:.4f} | val_loss {:.4f}'.format(epoch, train_loss, val_loss))
-        if args.use_step_policy == 1:
-            scheduler.step() 
-            print('scheduler and optimizer info: ')
-            print(scheduler)
-            print(optimizer)
 
         if neptune is not None:
             neptune.log_metric('train_loss', epoch, train_loss)
@@ -230,7 +259,7 @@ if __name__ == '__main__':
                 break
 
     # test the model on clean examples  
-    model = torch.load('./result/' + out_file)
+    # model = torch.load('./result/' + out_file)
 
     test_acc = test(model, device, test_loader)
     print('clean acc: {:.4f}'.format(test_acc))
@@ -248,5 +277,7 @@ if __name__ == '__main__':
         print('dataset must be mnist or cifar10')
         import sys; sys.exit(0)
 
-    fgsm_test(model, testset, args.epsilon, device, args.adv_test_out_path, neptune)
-    i_fgsm_test(model, testset, args.epsilon, iteration=args.iteration, device=device, neptune=neptune, dataset=args.dataset)
+    adv_testloader = torch.utils.data.DataLoader(testset, batch_size=1,shuffle=False,num_workers=2,drop_last=True)
+
+    acc = fgsm_test(model, adv_testloader, args.epsilon, device)
+    print('fgsm acc: {:.4f}'.format(acc))

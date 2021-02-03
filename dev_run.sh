@@ -18,21 +18,21 @@ LR=$2
 WEIGHT_DECAY=0.0005
 NUM_EPOCHS=50
 BATCH_SIZE=64
-DROP_P=0.3
+DROP_P=0.0
 PATIENCE=2000
 USE_STEP_POLICY=$3
-STEP_SIZE=60
-GAMMA=0.2
+STEP_SIZE=10
+GAMMA=0.5
 USE_MYDROPOUT=0
 ADV_TEST_OUT_PATH='./result/adv_dummy.pkl'
 ITERATION=40
 
 # neptune
-NAME='21.01.26.exp2.debug'
+NAME='21.02.01.exp1.debug'
 TAG='none'
 
-for i in 1 2 3
-do
+#for i in 1 2 3
+#do
     python3 dev_main.py \
         --dataset=$DATASET \
         --model=$MODEL \
@@ -51,4 +51,4 @@ do
         --adv_test_out_path=$ADV_TEST_OUT_PATH \
         --iteration=$ITERATION \
         --epsilon=$EPSILON
-done
+#done

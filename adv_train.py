@@ -104,15 +104,13 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, help='')
     parser.add_argument('--adv_train', type=int, help='')
     parser.add_argument('--alpha', type=float, help='')
+    parser.add_argument('--drop_p', type=float, help='')
+    parser.add_argument('--use_mydropout', type=int, help='')
     args = parser.parse_args()
     params = vars(args)
-
-    # add args for ifgsm
-    # import related items
-    # test the code
     
     device = torch.device('cuda')
-    model = MNIST_LeNet_plus(0.0,0).to(device) 
+    model = MNIST_LeNet_plus(drop_p=args.drop_p, use_mydropout=args.use_mydropout).to(device) 
 
     neptune.init('cjlee/dropAdv2')
     experiment = neptune.create_experiment(name=args.name, params=params)

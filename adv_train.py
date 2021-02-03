@@ -10,6 +10,7 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 
+import argparse
 import warnings
 warnings.filterwarnings('ignore')
 import os
@@ -17,7 +18,7 @@ import sys
 import neptune
 
 from adv_model import MNIST_LeNet_plus
-from fgsm_tutorial import ifgsm_test
+from fgsm_tutorial import fgsm_attack, fgsm_test, ifgsm_test
 
 def train(model, device, train_loader, optimizer):
     model.train()
@@ -46,11 +47,47 @@ def train(model, device, train_loader, optimizer):
 
     return total_loss / batch_idx
 
+def adv_train1(model, device, train_loader, optimizer, epoch, epsilon, alpha):
+    model.train()
+    total_loss = 0.0
+
+    for batch_idx,(data,target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
+        #data = torch.flatten(data, start_dim=1)
+        # requires grads
+        data.requires_grad = True
+    
+        optimizer.zero_grad()
+
+        output = model(data)
+        clean_loss = F.nll_loss(output, target)
+
+        # call FGSM attack
+        clean_loss.backward(retain_graph=True)
+        data_grad = data.grad.data
+
+        perturbed_data = fgsm_attack(data, epsilon, data_grad)
+
+        # clean grad
+        optimizer.zero_grad()
+
+        # forward data to obtain adv loss
+        output = model(perturbed_data)
+
+        adv_loss = F.nll_loss(output, target)
+
+        # combined loss backward and optimizer.step
+        loss = alpha * clean_loss + (1.0 - alpha) * adv_loss
+
+        total_loss += loss.item()
+
+        loss.backward()
+        optimizer.step()
+
+    return total_loss / batch_idx
+
 # initialize model and training parameters
 if __name__ == '__main__':
-    import argparse
-    from fgsm_tutorial import fgsm_test
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', type=float, help='')
     parser.add_argument('--momentum', type=float, help='')
@@ -65,6 +102,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='')
     parser.add_argument('--tag', type=str, help='')
     parser.add_argument('--weight_decay', type=float, help='')
+    parser.add_argument('--adv_train', type=int, help='')
+    parser.add_argument('--alpha', type=float, help='')
     args = parser.parse_args()
     params = vars(args)
 
@@ -98,7 +137,14 @@ if __name__ == '__main__':
     train_loss = 0.0
     # define train function
     for ei in range(args.max_epochs):
-        train_loss = train(model, device, train_loader, optimizer) 
+        if args.adv_train == 0:
+            train_loss = train(model, device, train_loader, optimizer) 
+        elif args.adv_train == 1:
+            train_loss = adv_train1(model, device, train_loader, optimizer, ei, epsilon=args.epsilon, alpha=args.alpha) 
+        else:
+            print('adv_train must be 0 or 1')
+            import sys; sys.exit(-1)
+
         if args.use_scheduler == 1:
             scheduler.step()
 

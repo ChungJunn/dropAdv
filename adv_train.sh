@@ -8,11 +8,13 @@ ITERATION=40
 LR=0.1
 MOMENTUM=0.9
 WEIGHT_DECAY=0.0005
-MAX_EPOCHS=50
+MAX_EPOCHS=1
 BATCH_SIZE=64
 USE_SCHEDULER=1
 STEP_SIZE=10
 GAMMA=0.5
+ADV_TRAIN=1
+ALPHA=0.5
 SAVEPATH='mydict.pth'
 
 # neptune
@@ -34,5 +36,7 @@ do
         --name=$NAME \
         --tag=$TAG \
         --weight_decay=$WEIGHT_DECAY \
-        --iteration=$ITERATION
+        --iteration=$ITERATION \
+        --alpha=$ALPHA \
+        --adv_train=$ADV_TRAIN
 done

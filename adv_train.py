@@ -14,6 +14,7 @@ import warnings
 warnings.filterwarnings('ignore')
 import os
 import sys
+import neptune
 
 from adv_model import MNIST_LeNet_plus
 
@@ -59,13 +60,23 @@ if __name__ == '__main__':
     parser.add_argument('--use_scheduler', type=int, help='')
     parser.add_argument('--step_size', type=int, help='')
     parser.add_argument('--gamma', type=float, help='')
+    parser.add_argument('--name', type=str, help='')
+    parser.add_argument('--tag', type=str, help='')
+    parser.add_argument('--weight_decay', type=float, help='')
     args = parser.parse_args()
+    params = vars(args)
     
     device = torch.device('cuda')
     model = MNIST_LeNet_plus(0.0,0).to(device) 
 
+    neptune.init('cjlee/dropAdv2')
+    experiment = neptune.create_experiment(name=args.name, params=params)
+    neptune.append_tag(args.tag)
+    args.name = experiment.id
+    args.savepath = './result/' + args.name + '.pth'
+
     # learning rate scheduling
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     if args.use_scheduler == 1:
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
@@ -82,23 +93,23 @@ if __name__ == '__main__':
         train_loss = train(model, device, train_loader, optimizer) 
         if args.use_scheduler == 1:
             scheduler.step()
-            print(optimizer)
 
         print('{} | {:.3f}'.format(ei+1, train_loss))
+        neptune.log_metric('train_loss', ei, train_loss)
         
         torch.save(model.state_dict(), args.savepath)
 
     # test
     test_loader = torch.utils.data.DataLoader(
-        dset.MNIST('./data', train=false, download=True, transform=transforms.Compose([
+        dset.MNIST('./data', train=False, download=True, transform=transforms.Compose([
                 transforms.ToTensor(),
                 ])), 
             batch_size=1, shuffle=True)
 
     acc, ex = test(model, device, test_loader, epsilon=0.0)
     print('eps: 0.0 acc: ', acc)
+    neptune.set_property('clean acc', acc)
 
     acc, ex = test(model, device, test_loader, epsilon=args.epsilon)
     print('eps: ', args.epsilon, 'acc: ', acc)
-    
-    # connect neptune
+    neptune.set_property('fgsm acc', acc)

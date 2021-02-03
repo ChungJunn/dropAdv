@@ -7,16 +7,16 @@ EPSILON=0.3
 LR=0.1
 MOMENTUM=0.9
 WEIGHT_DECAY=0.0005
-MAX_EPOCHS=50
+MAX_EPOCHS=5
 BATCH_SIZE=64
 USE_SCHEDULER=1
-STEP_SIZE=3
+STEP_SIZE=10
 GAMMA=0.5
 SAVEPATH='mydict.pth'
 
 # neptune
-#NAME='21.02.03.exp1'
-#TAG='none'
+NAME='21.02.03.exp1.debug'
+TAG='none'
 
 #for i in 1 2 3
 #do
@@ -29,7 +29,8 @@ SAVEPATH='mydict.pth'
         --gamma=$GAMMA \
         --epsilon=$EPSILON \
         --momentum=$MOMENTUM \
-        --savepath=$SAVEPATH
-#        --name=$NAME \
-#        --tag=$TAG \
+        --savepath=$SAVEPATH \
+        --name=$NAME \
+        --tag=$TAG \
+        --weight_decay=$WEIGHT_DECAY
 #done
